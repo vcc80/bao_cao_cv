@@ -246,7 +246,7 @@ const EMPLOYEES = [
  * Sau khi deploy Code.gs làm Web App, dán URL vào đây (dạng .../exec).
  * Chưa dán thì app vẫn chạy được, chỉ riêng phần Báo cáo sẽ lưu tạm cục bộ
  * và tính năng "Ai đã báo cáo hôm nay" sẽ báo chưa kết nối. */
-const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbxU1FaVADYWBA6I-M0U2GGT6YhD4prxS3zT9lrQDGlxDtVMURwpJXRADaOtEWsDEH-Pmw/exec";
 function apiConfigured(){ return API_URL && API_URL.indexOf("PASTE_")===-1; }
 async function apiGet(action, params){
   const url = new URL(API_URL);
