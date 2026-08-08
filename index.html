@@ -201,6 +201,9 @@ select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
 .nf-none-btn{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;min-height:40px;}
 .nf-none-btn.active{background:var(--green-soft);border-color:var(--green);color:var(--green);}
 .nf-item textarea{margin-top:8px;}
+.report-infobar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 2px 16px;border-bottom:1px solid var(--line);margin-bottom:14px;width:100%;}
+.report-home-link{background:none;border:none;color:var(--teal-deep);font-weight:600;font-size:13px;cursor:pointer;padding:6px 0;}
+.report-reporter{font-size:12.5px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
 @media (max-width:600px){
   .layout{margin:0 auto;padding:0 12px 90px;gap:14px;}
   .topbar{padding:14px 16px;}
@@ -228,7 +231,7 @@ select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
 </style>
 </head>
 <body>
-<div class="topbar">
+<div class="topbar" id="topbar">
   <div class="brand">
     <span class="eyebrow">Phòng Khám Đa Khoa Dân Y — Mô hình quản trị 2 lớp</span>
     <h1>Quản trị công việc, đào tạo &amp; đánh giá</h1>
@@ -450,16 +453,27 @@ function goWork(){ state.homeView="work"; if(state.activeTab==="log") state.acti
 function renderAll(){
   const emp = getEmp(state.currentEmployeeId);
   renderTopSelect(emp);
-  if(!emp){ renderLandingGate(); return; }
-  if(state.homeView==="home"){ renderHomeScreen(emp); return; }
-  renderSidebar(emp);
+  if(!emp){ setTopbarVisible(true); renderLandingGate(); return; }
+  if(state.homeView==="home"){ setTopbarVisible(true); renderHomeScreen(emp); return; }
   if(state.homeView==="report"){
-    document.getElementById("tabs").innerHTML = `<button class="tab-btn" onclick="goHome()">← Trang chủ</button>`;
+    setTopbarVisible(false);
+    document.getElementById("sidebar").innerHTML = "";
+    document.getElementById("tabs").innerHTML = `
+      <div class="report-infobar">
+        <button type="button" class="report-home-link" onclick="goHome()">← Trang chủ</button>
+        <span class="report-reporter">${emp.name} — ${emp.khoi} — ${emp.branch}</span>
+      </div>`;
     document.getElementById("tabContent").innerHTML = renderLogTab(emp);
   } else {
+    setTopbarVisible(true);
+    renderSidebar(emp);
     renderTabsWithBack(emp);
     renderContent(emp);
   }
+}
+function setTopbarVisible(visible){
+  const el = document.getElementById("topbar");
+  if(el) el.style.display = visible ? "" : "none";
 }
 function renderHomeScreen(emp){
   document.getElementById("sidebar").innerHTML = "";
@@ -611,11 +625,28 @@ function positionModalHtml(){
   </div>`;
 }
 
+/* ===== Câu hỏi dùng chung giữa form nhập và trang xem lại (tránh lệch nội dung) ===== */
+const QUESTIONS = {
+  c1_done: "Bạn đã hoàn thành được công việc gì đáng kể?",
+  c1_patient: "Bệnh nhân hôm nay có khen hay không hài lòng về vấn đề gì không?",
+  c1_mmtb: "MMTB, vật tư có vấn đề gì không? Bạn đề xuất gì không?",
+  c1_process: "Quy trình có vấn đề gì không? Bạn có đề xuất gì không?",
+  c1_hr: "Vấn đề phối hợp hay nhân sự có vấn đề gì không?",
+  c2_new: "Hôm nay bạn có áp dụng cải tiến/hay thực hành quy trình mới nào không? Nếu có bạn thấy thế nào?",
+  c2_idea: "Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?",
+  c3_plan: "Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?",
+  c3_note: "Ngày mai làm ở những vị trí của bạn hôm nay có cần lưu ý việc gì không? (Về MMTB - Quy trình - Vật tư - Bệnh nhân)",
+  cd_c1_new: "Hôm nay bạn có triển khai áp dụng cải tiến/hay thực hành quy trình mới nào cho bộ phận không? Nếu có kết quả thế nào?",
+  cd_c1_idea: "Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?",
+  cd_c2_plan: "Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?",
+  readiness: "Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?"
+};
+
 /* ===== Ô câu hỏi kiểu "Không có gì / gõ nội dung" ===== */
-function noneField(key, question){
+function noneField(key){
   const val = logDraft[key];
   return `<div class="nf-item">
-    <div class="nf-question">${question}</div>
+    <div class="nf-question">${QUESTIONS[key]}</div>
     <div class="btn-row" style="margin-top:0;">
       <button type="button" class="nf-none-btn ${val.none?'active':''}" onclick="toggleNone('${key}')">${val.none? '✓ ':''}Không có gì</button>
     </div>
@@ -651,24 +682,24 @@ function renderLogTab(emp){
 
     <div class="c-block c-indigo">
       <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Complete</div><div class="c-question">Tình hình công việc hôm nay của bạn thế nào?</div></div></div>
-      ${noneField("c1_done","Bạn đã hoàn thành được công việc gì đáng kể?")}
-      ${noneField("c1_patient","Bệnh nhân hôm nay có khen hay không hài lòng về vấn đề gì không?")}
-      ${noneField("c1_mmtb","MMTB, vật tư có vấn đề gì không? Bạn đề xuất gì không?")}
-      ${noneField("c1_process","Quy trình có vấn đề gì không? Bạn có đề xuất gì không?")}
-      ${noneField("c1_hr","Vấn đề phối hợp hay nhân sự có vấn đề gì không?")}
+      ${noneField("c1_done")}
+      ${noneField("c1_patient")}
+      ${noneField("c1_mmtb")}
+      ${noneField("c1_process")}
+      ${noneField("c1_hr")}
     </div>
 
     <div class="c-block c-amber">
       <div class="c-head"><span class="c-num">2</span><div><div class="c-tag">Change</div><div class="c-question">Cải tiến và chuẩn hóa</div></div></div>
-      ${noneField("c2_new","Hôm nay bạn có áp dụng cải tiến/hay thực hành quy trình mới nào không? Nếu có bạn thấy thế nào?")}
-      ${noneField("c2_idea","Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?")}
+      ${noneField("c2_new")}
+      ${noneField("c2_idea")}
     </div>
 
     <div class="c-block c-green">
       <div class="c-head"><span class="c-num">3</span><div><div class="c-tag">Continue</div><div class="c-question">Kế hoạch và khả năng sẵn sàng</div></div></div>
       <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?</label>
       <textarea oninput="logDraft.c3_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_plan)}</textarea>
-      ${noneField("c3_note","Ngày mai làm ở những vị trí của bạn hôm nay có cần lưu ý việc gì không? (Về MMTB - Quy trình - Vật tư - Bệnh nhân)")}
+      ${noneField("c3_note")}
       <label>Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
       <div id="followUpList"></div>
       <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-ghost btn-small" onclick="addFollowUp()">+ Thêm việc cần theo dõi</button></div>
@@ -682,8 +713,8 @@ function renderLogTab(emp){
 
       <div class="c-block c-amber">
         <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Change</div><div class="c-question">Cải tiến và chuẩn hóa</div></div></div>
-        ${noneField("cd_c1_new","Hôm nay bạn có triển khai áp dụng cải tiến/hay thực hành quy trình mới nào cho bộ phận không? Nếu có kết quả thế nào?")}
-        ${noneField("cd_c1_idea","Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?")}
+        ${noneField("cd_c1_new")}
+        ${noneField("cd_c1_idea")}
       </div>
 
       <div class="c-block c-green">
@@ -719,23 +750,23 @@ function renderReviewPanel(emp){
 
     <div class="review-row"><div class="review-label">Vị trí làm hôm nay</div><div class="review-value">${allSelected.length? escHtml(allSelected.join(", ")) : "(chưa chọn)"}</div></div>
 
-    <div class="review-row"><div class="review-label">Mục 1 · Hoàn thành công việc đáng kể</div><div class="review-value">${escHtml(nfShow("c1_done"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 1 · Bệnh nhân khen / chưa hài lòng</div><div class="review-value">${escHtml(nfShow("c1_patient"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 1 · MMTB / vật tư</div><div class="review-value">${escHtml(nfShow("c1_mmtb"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 1 · Quy trình</div><div class="review-value">${escHtml(nfShow("c1_process"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 1 · Phối hợp / nhân sự</div><div class="review-value">${escHtml(nfShow("c1_hr"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 2 · Cải tiến / thực hành mới</div><div class="review-value">${escHtml(nfShow("c2_new"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 2 · Ý tưởng cải tiến / chuẩn hóa</div><div class="review-value">${escHtml(nfShow("c2_idea"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 3 · Kế hoạch ngày mai</div><div class="review-value">${escHtml(logDraft.c3_plan.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">Mục 3 · Lưu ý vị trí ngày mai</div><div class="review-value">${escHtml(nfShow("c3_note"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c1_done}</div><div class="review-value">${escHtml(nfShow("c1_done"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c1_patient}</div><div class="review-value">${escHtml(nfShow("c1_patient"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c1_mmtb}</div><div class="review-value">${escHtml(nfShow("c1_mmtb"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c1_process}</div><div class="review-value">${escHtml(nfShow("c1_process"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c1_hr}</div><div class="review-value">${escHtml(nfShow("c1_hr"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c2_new}</div><div class="review-value">${escHtml(nfShow("c2_new"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c2_idea}</div><div class="review-value">${escHtml(nfShow("c2_idea"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c3_plan}</div><div class="review-value">${escHtml(logDraft.c3_plan.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.c3_note}</div><div class="review-value">${escHtml(nfShow("c3_note"))}</div></div>
     ${followUps.length? `<div class="review-row"><div class="review-label">Việc cần theo dõi</div><div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div></div>`:""}
   `;
   if(isManager){
     html += `<h3 style="margin:20px 0 4px;">Báo cáo công việc Bộ phận</h3>
-    <div class="review-row"><div class="review-label">Mục 1 · Cải tiến/thực hành mới cho bộ phận</div><div class="review-value">${escHtml(nfShow("cd_c1_new"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 1 · Ý tưởng / chuẩn hóa</div><div class="review-value">${escHtml(nfShow("cd_c1_idea"))}</div></div>
-    <div class="review-row"><div class="review-label">Mục 2 · Kế hoạch giao việc ngày mai</div><div class="review-value">${escHtml(logDraft.cd_c2_plan.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">Mục 2 · Mức độ sẵn sàng</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>`;
+    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c1_new}</div><div class="review-value">${escHtml(nfShow("cd_c1_new"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c1_idea}</div><div class="review-value">${escHtml(nfShow("cd_c1_idea"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c2_plan}</div><div class="review-value">${escHtml(logDraft.cd_c2_plan.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.readiness}</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>`;
   }
   html += `<div class="btn-row" style="margin-top:18px;">
       <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
