@@ -231,22 +231,41 @@ const ROLE_LABELS = {
   director:"Ban điều hành"
 };
 
-const EMPLOYEES = [
-  {id:"nv01",code:"NV-014",name:"Nguyễn Thị Lan",khoi:"Điều dưỡng",branch:"DY1",role:"staff",email:"lan.nv014@danyclinic.vn"},
-  {id:"nv02",code:"NV-027",name:"Trần Văn Minh",khoi:"Cận lâm sàng",branch:"DY1",role:"staff",email:"minh.nv027@danyclinic.vn"},
-  {id:"nv03",code:"NV-033",name:"Lê Thị Hương",khoi:"Lễ tân - CSKH",branch:"DY2",role:"staff",email:"huong.nv033@danyclinic.vn"},
-  {id:"nv07",code:"NV-041",name:"Vũ Thị Nga",khoi:"Điều dưỡng",branch:"DY1",role:"leader",email:"nga.nv041@danyclinic.vn"},
-  {id:"nv08",code:"NV-009",name:"Bùi Văn Sơn",khoi:"Vận hành cơ sở",branch:"DY1",role:"som",email:"son.nv009@danyclinic.vn"},
-  {id:"nv04",code:"NV-005",name:"Phạm Văn Đức",khoi:"Điều dưỡng",branch:"Hội sở",role:"functional_head",email:"duc.nv005@danyclinic.vn"},
-  {id:"nv05",code:"NV-002",name:"Hoàng Thị Mai",khoi:"Nhân sự",branch:"Hội sở",role:"functional_head",email:"mai.nv002@danyclinic.vn"},
-  {id:"nv06",code:"NV-001",name:"Đỗ Văn Tùng",khoi:"Ban điều hành",branch:"Hội sở",role:"director",email:"tung.nv001@danyclinic.vn"},
+// Danh sách này chỉ là DỰ PHÒNG (hiện tạm khi chưa kết nối được Google Sheet,
+// hoặc trong lúc đang tải). Khi kết nối Sheet thành công, EMPLOYEES sẽ được
+// THAY THẾ HOÀN TOÀN bằng dữ liệu thật từ sheet "NhanVien" — xem loadEmployeesFromSheet().
+let EMPLOYEES = [
+  {id:"NV-014",code:"NV-014",name:"Nguyễn Thị Lan",khoi:"Điều dưỡng",branch:"DY1",role:"staff",email:"lan.nv014@danyclinic.vn"},
+  {id:"NV-027",code:"NV-027",name:"Trần Văn Minh",khoi:"Cận lâm sàng",branch:"DY1",role:"staff",email:"minh.nv027@danyclinic.vn"},
+  {id:"NV-033",code:"NV-033",name:"Lê Thị Hương",khoi:"Lễ tân - CSKH",branch:"DY2",role:"staff",email:"huong.nv033@danyclinic.vn"},
+  {id:"NV-041",code:"NV-041",name:"Vũ Thị Nga",khoi:"Điều dưỡng",branch:"DY1",role:"leader",email:"nga.nv041@danyclinic.vn"},
+  {id:"NV-009",code:"NV-009",name:"Bùi Văn Sơn",khoi:"Vận hành cơ sở",branch:"DY1",role:"som",email:"son.nv009@danyclinic.vn"},
+  {id:"NV-005",code:"NV-005",name:"Phạm Văn Đức",khoi:"Điều dưỡng",branch:"Hội sở",role:"functional_head",email:"duc.nv005@danyclinic.vn"},
+  {id:"NV-002",code:"NV-002",name:"Hoàng Thị Mai",khoi:"Nhân sự",branch:"Hội sở",role:"functional_head",email:"mai.nv002@danyclinic.vn"},
+  {id:"NV-001",code:"NV-001",name:"Đỗ Văn Tùng",khoi:"Ban điều hành",branch:"Hội sở",role:"director",email:"tung.nv001@danyclinic.vn"},
 ];
+/** Tải danh sách nhân viên thật từ Google Sheet (sheet "NhanVien" qua Apps Script).
+ * Vai trò (role) trong sheet phải là 1 trong: staff, leader, som, functional_head, director. */
+async function loadEmployeesFromSheet(){
+  if(!apiConfigured()) return false;
+  try{
+    const list = await apiGet("employees");
+    if(Array.isArray(list) && list.length){
+      EMPLOYEES = list.map(e=>({
+        id: String(e.code).trim(), code: String(e.code).trim(), name: e.name,
+        role: e.role, khoi: e.khoi, branch: e.branch, email: e.email
+      })).filter(e=>e.code);
+      return true;
+    }
+  }catch(err){ console.error("Không tải được danh sách nhân viên từ Google Sheet:", err); }
+  return false;
+}
 
 /** ================= KẾT NỐI GOOGLE SHEET (Apps Script Web App) =================
  * Sau khi deploy Code.gs làm Web App, dán URL vào đây (dạng .../exec).
  * Chưa dán thì app vẫn chạy được, chỉ riêng phần Báo cáo sẽ lưu tạm cục bộ
  * và tính năng "Ai đã báo cáo hôm nay" sẽ báo chưa kết nối. */
-const API_URL = "https://script.google.com/macros/s/AKfycbxU1FaVADYWBA6I-M0U2GGT6YhD4prxS3zT9lrQDGlxDtVMURwpJXRADaOtEWsDEH-Pmw/exec";
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 function apiConfigured(){ return API_URL && API_URL.indexOf("PASTE_")===-1; }
 async function apiGet(action, params){
   const url = new URL(API_URL);
@@ -290,63 +309,63 @@ const PROCEDURES = [
 
 const SEED = {
   reports:[
-    {id:"r1",employeeId:"nv01",date:"2026-07-28",status:"attention",
+    {id:"r1",employeeId:"NV-014",date:"2026-07-28",status:"attention",
      c1_self:"Hôm nay hỗ trợ 20 BN. Máy đo huyết áp phòng 3 hiển thị sai số, đã báo kỹ thuật. Không có phản ánh không hài lòng.", c1_dept:"",
      c2_self:"Đề xuất có bảng kiểm tra thiết bị đầu ca để phát hiện lỗi sớm hơn.", c2_dept:"",
      c3_self:"Ngày mai tiếp tục theo dõi máy đo huyết áp, nếu chưa sửa xong sẽ dùng máy dự phòng.", c3_dept:"",
      readiness:null, readinessSupport:""},
-    {id:"r2",employeeId:"nv01",date:"2026-07-29",status:"ok",
+    {id:"r2",employeeId:"NV-014",date:"2026-07-29",status:"ok",
      c1_self:"Hỗ trợ thay băng, theo dõi sinh hiệu 20 lượt. Người bệnh phòng 5 khen thái độ chăm sóc tận tình.", c1_dept:"",
      c2_self:"Không có gì cần thay đổi, quy trình vẫn ổn.", c2_dept:"",
      c3_self:"Ngày mai tiếp tục ca như bình thường.", c3_dept:"",
      readiness:null, readinessSupport:""},
-    {id:"r3",employeeId:"nv03",date:"2026-07-29",status:"attention",
+    {id:"r3",employeeId:"NV-033",date:"2026-07-29",status:"attention",
      c1_self:"Đón tiếp 64 lượt khách, hỗ trợ đăng ký online 12 ca. Một khách phàn nàn thời gian chờ buổi sáng hơn 20 phút.", c1_dept:"",
      c2_self:"Đã chủ động thông báo tình trạng chờ cho khách, giảm bức xúc.", c2_dept:"",
      c3_self:"Ngày mai đề xuất thêm màn hình lấy số tự động ở sảnh để giảm ùn ứ.", c3_dept:"",
      readiness:null, readinessSupport:""},
   ],
   tasks:[
-    {id:"t1",employeeId:"nv01",title:"Máy đo huyết áp phòng 3 hiển thị sai số",severity:"urgent",source:"reported",status:"in_progress",createdAt:"2026-07-28",
+    {id:"t1",employeeId:"NV-014",title:"Máy đo huyết áp phòng 3 hiển thị sai số",severity:"urgent",source:"reported",status:"in_progress",createdAt:"2026-07-28",
      dueDate:"2026-08-05",assignedBy:null,feedback:"Đã báo kỹ thuật, dự kiến thay cảm biến trước 05/08.",feedbackBy:"Vũ Thị Nga",
      description:"Máy đo huyết áp tự động tại phòng 3 hiển thị số đo không ổn định, chênh lệch so với đo tay.",
      steps:[{text:"Báo kỹ thuật thiết bị kiểm tra",done:true},{text:"Ngừng sử dụng máy, dùng máy dự phòng",done:true},{text:"Thay/hiệu chỉnh cảm biến",done:false}],
      doer:"Nguyễn Thị Lan", reviewer:"Vũ Thị Nga", reportTo:"Bùi Văn Sơn", detailStatus:"Đang triển khai", note:"Đã liên hệ nhà cung cấp thiết bị.", onBoard:true},
-    {id:"t2",employeeId:"nv03",title:"Thời gian chờ lấy số buổi sáng kéo dài",severity:"normal",source:"reported",status:"new",createdAt:"2026-07-29",
+    {id:"t2",employeeId:"NV-033",title:"Thời gian chờ lấy số buổi sáng kéo dài",severity:"normal",source:"reported",status:"new",createdAt:"2026-07-29",
      dueDate:null,assignedBy:null,feedback:null,feedbackBy:null,
      description:"Khách hàng phải chờ trên 20 phút để lấy số vào khung giờ 7h30–8h30.",
      steps:[], doer:"Lê Thị Hương", reviewer:"Bùi Văn Sơn", reportTo:"Bùi Văn Sơn", detailStatus:"Chưa xử lý", note:"", onBoard:false},
-    {id:"t3",employeeId:"nv02",title:"Đề xuất dán nhãn màu ống nghiệm theo khoa",severity:"normal",source:"planned",status:"new",createdAt:"2026-07-30",
+    {id:"t3",employeeId:"NV-027",title:"Đề xuất dán nhãn màu ống nghiệm theo khoa",severity:"normal",source:"planned",status:"new",createdAt:"2026-07-30",
      dueDate:null,assignedBy:null,feedback:null,feedbackBy:null,
      description:"Dán nhãn màu theo từng khoa để tránh nhầm lẫn ống nghiệm khi lấy mẫu.",
      steps:[], doer:"Trần Văn Minh", reviewer:"Phạm Văn Đức", reportTo:"Phạm Văn Đức", detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true},
-    {id:"t4",employeeId:"nv07",title:"Rà soát định mức nhân sự trực cuối tuần DY1",severity:"normal",source:"assigned",status:"new",createdAt:"2026-07-30",
+    {id:"t4",employeeId:"NV-041",title:"Rà soát định mức nhân sự trực cuối tuần DY1",severity:"normal",source:"assigned",status:"new",createdAt:"2026-07-30",
      dueDate:"2026-08-06",assignedBy:"Bùi Văn Sơn",feedback:null,feedbackBy:null,
      description:"Rà soát lại số lượng nhân sự trực thứ 7, chủ nhật để đảm bảo đủ người theo lưu lượng khách.",
      steps:[{text:"Thống kê lưu lượng khách 4 tuần gần nhất",done:false},{text:"Đề xuất định mức mới",done:false}],
      doer:"Vũ Thị Nga", reviewer:"Bùi Văn Sơn", reportTo:"Bùi Văn Sơn", detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true},
   ],
   trainings:[
-    {id:"tr1",employeeId:"nv01",title:"Kiểm soát nhiễm khuẩn bệnh viện",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"completed",dueDate:"2026-07-15",score:5,note:"Nắm vững quy trình, xử lý tình huống tốt.",skills:"Quy trình vô khuẩn, xử lý vật sắc nhọn"},
-    {id:"tr2",employeeId:"nv01",title:"Cấp cứu ngừng tim cơ bản (BLS)",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"in_progress",dueDate:"2026-08-10",score:null,note:"",skills:""},
-    {id:"tr3",employeeId:"nv03",title:"Kỹ năng giao tiếp với người bệnh",assignedBy:"Hoàng Thị Mai",evaluator:"Bùi Văn Sơn",status:"submitted",dueDate:"2026-08-01",score:null,note:"",skills:""},
-    {id:"tr4",employeeId:"nv02",title:"An toàn sinh học phòng xét nghiệm",assignedBy:"Hoàng Thị Mai",evaluator:"Hoàng Thị Mai",status:"assigned",dueDate:"2026-08-20",score:null,note:"",skills:""},
+    {id:"tr1",employeeId:"NV-014",title:"Kiểm soát nhiễm khuẩn bệnh viện",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"completed",dueDate:"2026-07-15",score:5,note:"Nắm vững quy trình, xử lý tình huống tốt.",skills:"Quy trình vô khuẩn, xử lý vật sắc nhọn"},
+    {id:"tr2",employeeId:"NV-014",title:"Cấp cứu ngừng tim cơ bản (BLS)",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"in_progress",dueDate:"2026-08-10",score:null,note:"",skills:""},
+    {id:"tr3",employeeId:"NV-033",title:"Kỹ năng giao tiếp với người bệnh",assignedBy:"Hoàng Thị Mai",evaluator:"Bùi Văn Sơn",status:"submitted",dueDate:"2026-08-01",score:null,note:"",skills:""},
+    {id:"tr4",employeeId:"NV-027",title:"An toàn sinh học phòng xét nghiệm",assignedBy:"Hoàng Thị Mai",evaluator:"Hoàng Thị Mai",status:"assigned",dueDate:"2026-08-20",score:null,note:"",skills:""},
   ],
   evaluations:[
-    {id:"e1",employeeId:"nv01",period:"2026-07",completion:9,attitude:9,initiative:8,note:"Chủ động báo cáo sự cố thiết bị kịp thời, phối hợp tốt.",rewardProposed:true,rewardNote:"Đề xuất khen thưởng nhân viên xuất sắc tháng 7.",evaluator:"Vũ Thị Nga"},
-    {id:"e2",employeeId:"nv03",period:"2026-07",completion:7,attitude:8,initiative:6,note:"Hoàn thành công việc ổn định, cần chủ động đề xuất cải tiến hơn.",rewardProposed:false,rewardNote:"",evaluator:"Bùi Văn Sơn"},
+    {id:"e1",employeeId:"NV-014",period:"2026-07",completion:9,attitude:9,initiative:8,note:"Chủ động báo cáo sự cố thiết bị kịp thời, phối hợp tốt.",rewardProposed:true,rewardNote:"Đề xuất khen thưởng nhân viên xuất sắc tháng 7.",evaluator:"Vũ Thị Nga"},
+    {id:"e2",employeeId:"NV-033",period:"2026-07",completion:7,attitude:8,initiative:6,note:"Hoàn thành công việc ổn định, cần chủ động đề xuất cải tiến hơn.",rewardProposed:false,rewardNote:"",evaluator:"Bùi Văn Sơn"},
   ],
   assignments:[
-    {id:"a1", employeeId:"nv01", position:"Tiêm truyền tĩnh mạch", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
-    {id:"a2", employeeId:"nv01", position:"Thay băng vết thương", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
+    {id:"a1", employeeId:"NV-014", position:"Tiêm truyền tĩnh mạch", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
+    {id:"a2", employeeId:"NV-014", position:"Thay băng vết thương", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
   ],
   grants:[
-    {id:"g1", granteeId:"nv08", khoi:"Lễ tân - CSKH", grantedBy:"Đỗ Văn Tùng"},
+    {id:"g1", granteeId:"NV-009", khoi:"Lễ tân - CSKH", grantedBy:"Đỗ Văn Tùng"},
   ]
 };
 
 let DATA = null;
-let state = { currentEmployeeId:"nv01", activeTab:"log", openQuiz:null, openWorklog:null, logStep:0, reportStatusHtml:null };
+let state = { currentEmployeeId:null, activeTab:"log", openQuiz:null, openWorklog:null, logStep:0, reportStatusHtml:null };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -399,11 +418,24 @@ function setTab(t){ state.activeTab=t; renderAll(); }
 
 function renderAll(){
   const emp = getEmp(state.currentEmployeeId);
-  renderTopSelect(emp); renderSidebar(emp); renderTabs(emp); renderContent(emp);
+  renderTopSelect(emp);
+  if(!emp){ renderLandingGate(); return; }
+  renderSidebar(emp); renderTabs(emp); renderContent(emp);
+}
+function renderLandingGate(){
+  document.getElementById("sidebar").innerHTML = "";
+  document.getElementById("tabs").innerHTML = "";
+  document.getElementById("tabContent").innerHTML = `
+    <div class="panel" style="text-align:center;padding:40px 24px;">
+      <h3 style="margin-bottom:8px;">Chào mừng đến hệ thống báo cáo</h3>
+      <div class="hint" style="margin-bottom:0;">Nhập mã nhân viên ở góc trên bên phải để bắt đầu, hoặc dùng đúng link cá nhân đã được cấp (dạng ...?ma=MÃ_NV).</div>
+      ${!apiConfigured()? `<div class="hint" style="color:var(--rose);margin-top:14px;">⚠️ Hệ thống chưa kết nối được Google Sheet nhân sự (API_URL chưa cấu hình) — đang hiển thị danh sách demo tạm thời, không phải danh sách thật.</div>` : ""}
+    </div>`;
 }
 function renderTopSelect(emp){
-  document.getElementById("personaSelect").innerHTML = EMPLOYEES.map(e=>
-    `<option value="${e.id}" ${e.id===emp.id?"selected":""}>${e.name} — ${ROLE_LABELS[e.role]}</option>`).join("");
+  const options = EMPLOYEES.map(e=>
+    `<option value="${e.id}" ${emp && e.id===emp.id?"selected":""}>${e.name} — ${ROLE_LABELS[e.role]}</option>`).join("");
+  document.getElementById("personaSelect").innerHTML = `<option value="">— chọn nhanh (demo) —</option>` + options;
 }
 function renderSidebar(emp){
   const myReports = DATA.reports.filter(r=>r.employeeId===emp.id);
@@ -1239,8 +1271,18 @@ function renderOverviewTab(emp){
 
 (async function init(){
   await loadData();
-  const urlEmp = getUrlEmployeeId();
+  const urlEmp = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
   if(urlEmp) state.currentEmployeeId = urlEmp;
+  else state.currentEmployeeId = null; // chưa xác định — sẽ hiện màn hình nhập mã NV
+  renderAll();
+
+  const loaded = await loadEmployeesFromSheet();
+  if(loaded){
+    // Sau khi có danh sách THẬT từ Sheet, dò lại link cá nhân (?ma=) theo danh sách thật
+    const realUrlEmp = getUrlEmployeeId();
+    if(realUrlEmp) state.currentEmployeeId = realUrlEmp;
+    else if(state.currentEmployeeId && !getEmp(state.currentEmployeeId)) state.currentEmployeeId = null;
+  }
   renderAll();
 })();
 </script>
