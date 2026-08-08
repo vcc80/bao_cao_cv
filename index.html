@@ -173,6 +173,18 @@ select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
 .review-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;margin-bottom:4px;}
 .review-value{font-size:13.5px;line-height:1.5;padding-right:78px;white-space:pre-wrap;}
 .review-row .btn{position:absolute;top:10px;right:10px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(22,48,43,.55);z-index:80;display:flex;align-items:flex-end;justify-content:center;}
+.modal-sheet{background:var(--surface);width:100%;max-width:560px;max-height:84vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+.modal-header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.modal-header h3{margin:0;font-size:16px;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--ink-soft);cursor:pointer;padding:4px 8px;}
+.modal-search{padding:10px 18px;flex-shrink:0;}
+.modal-list{overflow-y:auto;padding:0 18px;flex:1;}
+.modal-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bg);font-size:14px;cursor:pointer;}
+.modal-item input[type=checkbox]{width:20px;height:20px;flex-shrink:0;}
+.modal-other{padding:10px 0 16px;}
+.modal-footer{padding:14px 18px;border-top:1px solid var(--line);flex-shrink:0;}
+.modal-footer .btn{width:100%;}
 @media (max-width:600px){
   .layout{margin:0 auto;padding:0 12px 90px;gap:14px;}
   .topbar{padding:14px 16px;}
@@ -265,7 +277,7 @@ async function loadEmployeesFromSheet(){
  * Sau khi deploy Code.gs làm Web App, dán URL vào đây (dạng .../exec).
  * Chưa dán thì app vẫn chạy được, chỉ riêng phần Báo cáo sẽ lưu tạm cục bộ
  * và tính năng "Ai đã báo cáo hôm nay" sẽ báo chưa kết nối. */
-const API_URL = "https://script.google.com/macros/s/AKfycbxU1FaVADYWBA6I-M0U2GGT6YhD4prxS3zT9lrQDGlxDtVMURwpJXRADaOtEWsDEH-Pmw/exec";
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 function apiConfigured(){ return API_URL && API_URL.indexOf("PASTE_")===-1; }
 async function apiGet(action, params){
   const url = new URL(API_URL);
@@ -365,7 +377,7 @@ const SEED = {
 };
 
 let DATA = null;
-let state = { currentEmployeeId:null, activeTab:"log", openQuiz:null, openWorklog:null, logStep:0, reportStatusHtml:null };
+let state = { currentEmployeeId:null, activeTab:"log", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, justSubmitted:false, submitWarning:null, historyHtml:null };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -390,7 +402,7 @@ function scopeFor(emp){
   return [];
 }
 
-function switchEmployee(id){ state.currentEmployeeId=id; state.activeTab="log"; state.openQuiz=null; state.openWorklog=null; resetLogDraft(); renderAll(); }
+function switchEmployee(id){ state.currentEmployeeId=id; state.activeTab="log"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; resetLogDraft(); renderAll(); }
 function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
@@ -480,15 +492,26 @@ function renderContent(emp){
   else if(state.activeTab==="overview") el.innerHTML = renderOverviewTab(emp);
 }
 
+const DAILY_POSITIONS = [
+  "QUẦY THUỐC - THU NGÂN QT","BẢNG KÊ GIẤY NGHỈ","HƯỚNG DẪN PHÂN LUỒNG","NHẬN BỆNH","CẤP CỨU",
+  "X QUANG","LẤY MÁU - CHÍCH - TRUYỀN","ĐIỆN TIM","ĐIỆN NÃO","THU NGÂN L1","PHỤ BÁC SỸ",
+  "PHỤ SIÊU ÂM","TIẾP NHẬN KSK","BÁN BẢO HIỂM","XÉT NGHIỆM","KHO THUỐC","KHO VẬT TƯ",
+  "HỒ SƠ CHÍNH","HỒ SƠ PHỤ","CHÂM CỨU","TẬP VẬN ĐỘNG","YHCT KHÁC","THU NGÂN YHCT","LÀM HS YHCT",
+  "HÀNH CHÁNH YHCT","HS BỆNH ÁN NỘI","HS BỆNH ÁN RHM","PHỤ RHM","HÀNH CHÁNH RHM","THAY BĂNG",
+  "TIỂU PHẪU","BÓ BỘT","NỘI SOI THM","KHÍ DUNG - RỬA MŨI","ĐO THÍNH LỰC","PHỤ NHA",
+  "HÀNH CHÁNH","KẾ TOÁN","HỘ LÝ","BẢO VỆ","ĐIỀU TRỊ"
+];
+
 let logStatus = "ok";
 let readinessDraft = "ready";
 let followUpDraft = [];
-let selectedPositions = [];
+let selectedPositionNames = [];
+let selectedPositionOther = "";
 let logDraft = {c1_self:"",c1_dept:"",c2_self:"",c2_dept:"",c3_self:"",c3_dept:"",c3_support:""};
 function resetLogDraft(){
-  logStatus="ok"; readinessDraft="ready"; followUpDraft=[]; selectedPositions=[];
+  logStatus="ok"; readinessDraft="ready"; followUpDraft=[];
+  selectedPositionNames=[]; selectedPositionOther="";
   logDraft = {c1_self:"",c1_dept:"",c2_self:"",c2_dept:"",c3_self:"",c3_dept:"",c3_support:""};
-  state.logStep = 0;
 }
 function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
 function scopeLabelFor(emp){
@@ -503,98 +526,90 @@ function statusBtn(val,icon,label){
   const cls = val==="ok"?"st-ok":val==="attention"?"st-attention":"st-urgent";
   return `<button type="button" class="status-pill ${cls} ${logStatus===val?'active':''}" onclick="setLogStatus('${val}')">${icon} ${label}</button>`;
 }
-function togglePosition(code){
-  const i = selectedPositions.indexOf(code);
-  if(i>-1) selectedPositions.splice(i,1); else selectedPositions.push(code);
+
+/* ===== Modal chọn vị trí làm hôm nay ===== */
+function openPositionModal(){ state.showPositionModal = true; renderAll(); }
+function closePositionModal(){
+  selectedPositionOther = (document.getElementById("posOtherInput")?.value || "").trim();
+  state.showPositionModal = false;
   renderAll();
 }
-function nextLogStep(){ if(state.logStep<4) state.logStep++; renderAll(); window.scrollTo(0,0); }
-function prevLogStep(){ if(state.logStep>0) state.logStep--; renderAll(); window.scrollTo(0,0); }
-function goToStep(n){ state.logStep=n; renderAll(); window.scrollTo(0,0); }
+function onTogglePosition(checkbox, name){
+  const i = selectedPositionNames.indexOf(name);
+  if(checkbox.checked){ if(i===-1) selectedPositionNames.push(name); }
+  else if(i>-1) selectedPositionNames.splice(i,1);
+  const c = document.getElementById("posModalCount");
+  if(c) c.textContent = selectedPositionNames.length;
+}
+function filterPositionList(q){
+  q = q.toLowerCase();
+  document.querySelectorAll(".modal-item[data-name]").forEach(row=>{
+    row.style.display = row.dataset.name.toLowerCase().includes(q) ? "flex" : "none";
+  });
+}
+function positionModalHtml(){
+  return `<div class="modal-overlay" onclick="if(event.target===this) closePositionModal()">
+    <div class="modal-sheet">
+      <div class="modal-header"><h3>Chọn vị trí làm hôm nay</h3><button type="button" class="modal-close" onclick="closePositionModal()">✕</button></div>
+      <div class="modal-search"><input type="text" placeholder="Tìm vị trí..." oninput="filterPositionList(this.value)"></div>
+      <div class="modal-list">
+        ${DAILY_POSITIONS.map(name=>`
+          <label class="modal-item" data-name="${name}">
+            <input type="checkbox" ${selectedPositionNames.includes(name)?"checked":""} onchange="onTogglePosition(this,'${name.replace(/'/g,"\'")}')">
+            <span>${name}</span>
+          </label>`).join("")}
+        <div class="modal-other">
+          <label style="margin-top:0;">Khác (vị trí không có trong danh sách)</label>
+          <input type="text" id="posOtherInput" placeholder="Gõ tên vị trí..." value="${selectedPositionOther.replace(/"/g,'&quot;')}">
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="closePositionModal()">OK (<span id="posModalCount">${selectedPositionNames.length}</span> đã chọn)</button></div>
+    </div>
+  </div>`;
+}
 
 function renderLogTab(emp){
+  if(state.justSubmitted) return renderSubmitSuccess(emp);
   const isManager = scopeFor(emp).length>0;
-  const steps = ["Thông tin nhanh","C1 · Hôm nay","C2 · Cải tiến","C3 · Ngày mai","Xem lại & Gửi"];
-  const step = state.logStep||0;
-  let body;
-  if(step===0) body = stepStatusPosition(emp);
-  else if(step===1) body = stepC(emp,isManager,1,"indigo","Complete","Kết quả & tình hình hôm nay");
-  else if(step===2) body = stepC(emp,isManager,2,"amber","Change","Hôm nay đã làm tốt hơn được gì?");
-  else if(step===3) body = stepC(emp,isManager,3,"green","Continue","Ngày mai làm gì & đã sẵn sàng chưa?");
-  else body = stepReview(emp,isManager);
+  const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
+  let html = `
+  <div class="panel">
+    <h3 style="margin-bottom:4px;">Báo cáo 3C — cuối ngày ${fmtDate(todayStr())}</h3>
+    <div class="hint">Trả lời trực tiếp vào các ô bên dưới, cuộn xuống cuối rồi bấm Gửi.</div>
 
-  return `
-  <div class="panel wizard-panel">
-    <h3 style="margin-bottom:8px;">Báo cáo 3C — cuối ngày ${fmtDate(todayStr())}</h3>
-    <div class="step-dots">${steps.map((s,i)=>`<div class="step-dot ${i===step?'active':''} ${i<step?'done':''}"></div>`).join("")}</div>
-    <div class="step-label">${steps[step]} · Bước ${step+1}/${steps.length}</div>
-    ${body}
-    <div class="wizard-nav">
-      ${step>0? `<button type="button" class="btn btn-ghost" onclick="prevLogStep()">← Quay lại</button>` : `<span></span>`}
-      ${step<4? `<button type="button" class="btn btn-primary" onclick="nextLogStep()">Tiếp theo →</button>`
-                : `<button type="button" class="btn btn-primary" onclick="submitLog('${emp.id}')">✓ Gửi báo cáo hôm nay</button>`}
-    </div>
-  </div>
-  <div class="panel"><h3>Báo cáo gần đây của tôi</h3>${renderMyRecentLogs(emp)}</div>`;
-}
-function readinessLabelText(v){ return v==="ready"?"✅ Sẵn sàng":v==="conditional"?"⚠️ Có điều kiện":"❌ Chưa sẵn sàng"; }
-function stepReview(emp,isManager){
-  const posNames = selectedPositions.map(c=>{ const p=PROCEDURES.find(x=>x.code===c); return p? p.position : null; }).filter(Boolean);
-  const followUps = followUpDraft.filter(i=>i.title.trim());
-  return `
-    <div class="hint" style="margin-top:0;">Xem lại toàn bộ nội dung trước khi gửi. Đúng rồi thì bấm "Gửi báo cáo hôm nay" bên dưới — cần sửa chỗ nào thì bấm "Chỉnh sửa" ngay tại mục đó.</div>
-    <div class="review-row">
-      <div class="review-label">Trạng thái chung</div>
-      <div class="review-value"><span class="status-badge ${logStatus}">${statusLabel(logStatus)}</span></div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(0)">Chỉnh sửa</button>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Vị trí hôm nay</div>
-      <div class="review-value">${posNames.length? posNames.join(", ") : "<i>(chưa chọn)</i>"}</div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(0)">Chỉnh sửa</button>
-    </div>
-    ${reviewC(1,"C1 · Hôm nay")}
-    ${reviewC(2,"C2 · Cải tiến")}
-    ${reviewC(3,"C3 · Ngày mai")}
-    ${isManager? `<div class="review-row">
-      <div class="review-label">Sẵn sàng ngày mai</div>
-      <div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support? " — "+escHtml(logDraft.c3_support) : ""}</div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(3)">Chỉnh sửa</button>
-    </div>` : ""}
-    ${followUps.length? `<div class="review-row">
-      <div class="review-label">Việc cần theo dõi (sẽ tạo thẻ công việc)</div>
-      <div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(3)">Chỉnh sửa</button>
-    </div>` : ""}`;
-}
-function reviewC(num, label){
-  const selfKey = "c"+num+"_self", deptKey = "c"+num+"_dept";
-  let html = `<div class="review-row">
-      <div class="review-label">${label} — cá nhân</div>
-      <div class="review-value">${logDraft[selfKey]? escHtml(logDraft[selfKey]) : "<i>(trống)</i>"}</div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(${num})">Chỉnh sửa</button>
-    </div>`;
-  if(logDraft[deptKey]){
-    html += `<div class="review-row">
-      <div class="review-label">${label} — bộ phận</div>
-      <div class="review-value">${escHtml(logDraft[deptKey])}</div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(${num})">Chỉnh sửa</button>
-    </div>`;
-  }
-  return html;
-}
-function stepStatusPosition(emp){
-  return `
     <label style="margin-top:0;">Trạng thái chung hôm nay</label>
     <div class="status-picker">
       ${statusBtn("ok","🙂","Bình thường")}
       ${statusBtn("attention","😐","Cần chú ý")}
       ${statusBtn("urgent","⚠️","Cần xử lý ngay")}
     </div>
-    <label>Hôm nay tôi làm những vị trí nào? (chạm để chọn, có thể chọn nhiều)</label>
-    <div class="chip-row">
-      ${PROCEDURES.map(p=>`<button type="button" class="pos-chip ${selectedPositions.includes(p.code)?'active':''}" onclick="togglePosition(${p.code})">${p.position}<span class="chip-sub">${p.khoi}</span></button>`).join("")}
-    </div>`;
+
+    <label>Vị trí làm hôm nay</label>
+    <div class="btn-row" style="margin-top:0;">
+      <button type="button" class="btn btn-ghost" onclick="openPositionModal()">📋 Chọn vị trí làm${allSelected.length? " ("+allSelected.length+" đã chọn)":""}</button>
+    </div>
+    <div class="chip-row">${allSelected.length? allSelected.map(n=>`<span class="reminder-pill" style="background:var(--teal-soft);color:var(--teal-deep);">${n}</span>`).join("") : '<span class="hint" style="margin:8px 0 0;">Chưa chọn vị trí nào</span>'}</div>
+  </div>`;
+
+  html += stepC(emp,isManager,1,"indigo","Complete","Kết quả & tình hình hôm nay");
+  html += stepC(emp,isManager,2,"amber","Change","Hôm nay đã làm tốt hơn được gì?");
+  html += stepC(emp,isManager,3,"green","Continue","Ngày mai làm gì & đã sẵn sàng chưa?");
+
+  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="submitLog('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
+  html += historyBlock(emp);
+  if(state.showPositionModal) html += positionModalHtml();
+  return html;
+}
+function renderSubmitSuccess(emp){
+  return `<div class="panel" style="text-align:center;padding:48px 20px;">
+    <div style="font-size:44px;margin-bottom:10px;">✅</div>
+    <h3 style="margin-bottom:6px;">Bạn đã gửi báo cáo thành công!</h3>
+    <div class="hint" style="margin:0 0 18px;">Xin cảm ơn ${emp.name}. Báo cáo của bạn đã được ghi nhận.</div>
+    ${state.submitWarning==="local-only"? `<div class="hint" style="color:var(--amber);margin-bottom:14px;">⚠️ Hệ thống chưa kết nối Google Sheet nên báo cáo đang lưu tạm trên thiết bị này.</div>`:""}
+    ${state.submitWarning==="sheet-failed"? `<div class="hint" style="color:var(--rose);margin-bottom:14px;">⚠️ Gửi lên Google Sheet chưa thành công (có thể do mất mạng). Báo cáo đã lưu tạm, hãy thử lại sau.</div>`:""}
+    <button type="button" class="btn btn-primary" onclick="state.justSubmitted=false; renderAll();">✏️ Gửi báo cáo khác</button>
+  </div>
+  ${historyBlock(emp)}`;
 }
 function stepC(emp, isManager, num, color, tag, question){
   const guide = num===1 ? `<div class="reminder-row">
@@ -606,20 +621,14 @@ function stepC(emp, isManager, num, color, tag, question){
   const deptLabel = num===1? "B. Vai trò Trưởng bộ phận — bộ phận hoạt động thế nào?"
     : num===2? "B. Vai trò Trưởng bộ phận — bộ phận đã chuẩn hóa/cải tiến gì?"
     : "B. Vai trò Trưởng bộ phận — bộ phận ưu tiên việc gì, cần ai hỗ trợ?";
-  const selfPh = num===1? "Ví dụ: Hôm nay hỗ trợ 35 BN. Công việc bình thường, MMTB và vật tư đầy đủ. Có 2 BN khen hướng dẫn nhiệt tình."
-    : num===2? "Ví dụ: Thấy vật tư lấy máu để chưa thuận tay → sắp xếp lại theo thứ tự sử dụng. Thao tác thuận tiện hơn."
-    : "Ví dụ: Ngày mai tiếp tục theo dõi máy in tem, nếu lỗi lại sẽ ghi thời điểm để chuyển IT kiểm tra.";
-  const deptPh = num===1? "Ví dụ: Bộ phận phục vụ 186 BN. Nhân sự đủ, máy móc bình thường, không tồn đọng cuối ngày."
-    : num===2? "Ví dụ: Có 2 lần NV phải đi tìm giấy in → thống nhất mức tồn tối thiểu 5 cuộn/quầy, đưa vào checklist cuối ngày."
-    : "Ví dụ: Ngày mai dự kiến đông BN, thiếu 1 NV ca sáng chưa có người thay — cần Quản lý xác nhận người hỗ trợ.";
   const selfKey = "c"+num+"_self", deptKey = "c"+num+"_dept";
   let html = `<div class="c-block c-${color}" style="margin-top:0;">
     <div class="c-head"><span class="c-num">${num}</span><div><div class="c-tag">${tag}</div><div class="c-question">${question}</div></div></div>
     ${guide}
     <span class="role-label">${selfLabel}</span>
-    <textarea id="${selfKey}" oninput="logDraft.${selfKey}=this.value" placeholder="${selfPh}">${escHtml(logDraft[selfKey])}</textarea>
+    <textarea id="${selfKey}" oninput="logDraft.${selfKey}=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft[selfKey])}</textarea>
     ${isManager? `<span class="role-label">${deptLabel}</span>
-    <textarea id="${deptKey}" oninput="logDraft.${deptKey}=this.value" placeholder="${deptPh}">${escHtml(logDraft[deptKey])}</textarea>` : ""}
+    <textarea id="${deptKey}" oninput="logDraft.${deptKey}=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft[deptKey])}</textarea>` : ""}
   </div>`;
   if(num===3){
     html += `<div class="c-block c-green">`;
@@ -630,7 +639,7 @@ function stepC(emp, isManager, num, color, tag, question){
         ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
         ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
       </div>
-      ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea id="c3-support" oninput="logDraft.c3_support=this.value" placeholder="Ví dụ: Cần Quản lý xác nhận người hỗ trợ ca sáng mai.">${escHtml(logDraft.c3_support)}</textarea>`:""}`;
+      ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea id="c3-support" oninput="logDraft.c3_support=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_support)}</textarea>`:""}`;
     }
     html += `<label style="${isManager?'':'margin-top:0;'}">Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
       <div id="followUpList"></div>
@@ -658,30 +667,65 @@ function renderFollowUpList(){
     </div>`).join("");
 }
 function statusLabel(s){ return s==="ok"?"Bình thường":s==="attention"?"Cần chú ý":"Cần xử lý ngay"; }
-function renderMyRecentLogs(emp){
-  const list = DATA.reports.filter(r=>r.employeeId===emp.id).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
-  if(!list.length) return `<div class="empty">Chưa có báo cáo nào.</div>`;
-  return list.map(r=>`<div class="card">
+
+/* ===== Lịch sử báo cáo (tải theo yêu cầu, không tự tải sẵn) ===== */
+function historyBlock(emp){
+  return `<div class="panel">
+    <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-ghost" onclick="loadReportHistory('${emp.code}')">🕘 Xem lịch sử báo cáo</button></div>
+    <div id="historyResult">${state.historyHtml||""}</div>
+  </div>`;
+}
+async function loadReportHistory(code){
+  state.historyHtml = `<div class="empty" style="margin-top:10px;">Đang tải lịch sử báo cáo...</div>`;
+  renderAll();
+  if(!apiConfigured()){
+    const emp = EMPLOYEES.find(e=>e.code===code);
+    const local = DATA.reports.filter(r=>emp && r.employeeId===emp.id).sort((a,b)=>b.date.localeCompare(a.date));
+    state.historyHtml = renderHistoryLocal(local);
+    renderAll(); return;
+  }
+  try{
+    const list = await apiGet("reportsByEmployee", {code});
+    state.historyHtml = renderHistoryFromApi(list);
+  }catch(err){
+    state.historyHtml = `<div class="empty" style="margin-top:10px;">Không tải được lịch sử báo cáo. Vui lòng thử lại.</div>`;
+  }
+  renderAll();
+}
+function renderHistoryLocal(list){
+  if(!list.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào.</div>`;
+  return list.map(r=>`<div class="card" style="margin-top:10px;">
       <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
       <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtDate(r.date)}</div>
-      ${r.positionsToday && r.positionsToday.length? `<div class="meta" style="margin-bottom:6px;">Vị trí hôm đó: ${r.positionsToday.join(", ")}</div>`:""}
+      ${r.positionsToday && r.positionsToday.length? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positionsToday.join(", ")}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;"><b>C1:</b> ${r.c1_self||"<i>(trống)</i>"}</div>
-      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C1 (bộ phận):</b> ${r.c1_dept}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;"><b>C2:</b> ${r.c2_self||"<i>(trống)</i>"}</div>
-      ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C2 (bộ phận):</b> ${r.c2_dept}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;"><b>C3:</b> ${r.c3_self||"<i>(trống)</i>"}</div>
-      ${r.c3_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C3 (bộ phận):</b> ${r.c3_dept}</div>`:""}
-      ${r.readiness?`<div style="margin-top:6px;"><span class="reward-flag" style="background:${r.readiness==='ready'?'var(--green-soft)':r.readiness==='conditional'?'var(--amber-soft)':'var(--rose-soft)'};color:${r.readiness==='ready'?'var(--green)':r.readiness==='conditional'?'var(--amber)':'var(--rose)'};">Sẵn sàng ngày mai: ${r.readiness==='ready'?'Sẵn sàng':r.readiness==='conditional'?'Có điều kiện':'Chưa sẵn sàng'}</span></div>`:""}
     </div>`).join("");
 }
+function renderHistoryFromApi(list){
+  if(!list || !list.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào trên hệ thống.</div>`;
+  const sorted = list.slice().sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:0));
+  return sorted.map(r=>`<div class="card" style="margin-top:10px;">
+      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${r.date}</div>
+      ${r.positions? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positions}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C1:</b> ${r.c1_self||"(trống)"}</div>
+      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C1 (bộ phận):</b> ${r.c1_dept}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C2:</b> ${r.c2_self||"(trống)"}</div>
+      ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C2 (bộ phận):</b> ${r.c2_dept}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C3:</b> ${r.c3_self||"(trống)"}</div>
+      ${r.c3_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C3 (bộ phận):</b> ${r.c3_dept}</div>`:""}
+    </div>`).join("");
+}
+
 async function submitLog(empId){
   const emp = getEmp(empId);
   const isManager = scopeFor(emp).length>0;
-  const positionsToday = selectedPositions.map(c=>{ const p=PROCEDURES.find(x=>x.code===c); return p? p.position : null; }).filter(Boolean);
+  const positionsToday = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
   const report = {
     id:"r"+Date.now(), employeeId:empId, date:todayStr(), status:logStatus,
-    positionsCodeRaw: selectedPositions.join(","), positionsToday,
+    positionsToday,
     c1_self: logDraft.c1_self.trim(), c1_dept: isManager? logDraft.c1_dept.trim() : "",
     c2_self: logDraft.c2_self.trim(), c2_dept: isManager? logDraft.c2_dept.trim() : "",
     c3_self: logDraft.c3_self.trim(), c3_dept: isManager? logDraft.c3_dept.trim() : "",
@@ -696,7 +740,7 @@ async function submitLog(empId){
       doer:emp.name, reviewer:null, reportTo:null, detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true});
   });
   resetLogDraft();
-  await saveData(); // sao lưu cục bộ, phòng khi mất mạng / chưa cấu hình Sheet
+  await saveData();
   let sheetOk = false;
   if(apiConfigured()){
     try{
@@ -710,9 +754,10 @@ async function submitLog(empId){
       sheetOk = true;
     }catch(err){ console.error("Chưa gửi được lên Google Sheet, đã lưu tạm cục bộ:", err); }
   }
+  state.justSubmitted = true;
+  state.submitWarning = !apiConfigured() ? "local-only" : (!sheetOk ? "sheet-failed" : null);
+  state.historyHtml = null;
   renderAll(); window.scrollTo(0,0);
-  if(!apiConfigured()) alert("Đã lưu báo cáo (tạm thời cục bộ) — chưa cấu hình kết nối Google Sheet nên chưa đồng bộ lên hệ thống chung. Xem hướng dẫn triển khai.");
-  else if(!sheetOk) alert("Đã lưu báo cáo tạm cục bộ, nhưng gửi lên Google Sheet thất bại (có thể do mất mạng). Vui lòng kiểm tra kết nối.");
 }
 
 const SRC_LABEL = {reported:"Tự báo cáo", assigned:"Được giao", planned:"Tự lên kế hoạch"};
