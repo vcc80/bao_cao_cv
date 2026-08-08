@@ -449,7 +449,16 @@ function scopeFor(emp){
   return [];
 }
 
-function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; resetLogDraft(); renderAll(); }
+/** Lưu/nhớ mã nhân viên đăng nhập gần nhất, để khắc phục việc PWA cài vào màn hình
+ * chính sẽ mở lại theo "start_url" cố định trong manifest.json (không mang theo
+ * ?ma=... trên URL) — nếu không có bước này, mỗi lần mở app đã cài sẽ luôn hiện
+ * màn hình trống chờ nhập mã, dù trước đó đã đăng nhập. */
+const LS_KEY = "danyclinic_lastcode";
+function saveLastCode(code){ try{ if(code) localStorage.setItem(LS_KEY, code); }catch(e){} }
+function getLastCode(){ try{ return localStorage.getItem(LS_KEY); }catch(e){ return null; } }
+function clearLastCode(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+
+function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; resetLogDraft(); const e=getEmp(id); if(e) saveLastCode(e.code); renderAll(); }
 function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
@@ -552,8 +561,14 @@ function exitFooterHtml(){
 }
 function doLogout(){
   if(!confirm("Thoát khỏi hồ sơ hiện tại?")) return;
+  clearLastCode();
   state.currentEmployeeId = null;
   state.homeView = "home";
+  try{
+    const url = new URL(window.location.href);
+    url.searchParams.delete("ma");
+    window.history.replaceState({}, "", url.toString());
+  }catch(e){}
   renderAll();
 }
 function renderLandingGate(){
@@ -1748,6 +1763,7 @@ function renderOverviewTab(emp){
   const urlEmpFallback = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
   if(urlEmpFallback){
     state.currentEmployeeId = urlEmpFallback;
+    saveLastCode(getEmp(urlEmpFallback)?.code);
     renderAll();
   } else if(maParam){
     // Có mã trên link nhưng chưa xác định được ngay (đang chờ tải danh sách thật) —
@@ -1757,7 +1773,11 @@ function renderOverviewTab(emp){
     document.getElementById("tabs").innerHTML = "";
     document.getElementById("tabContent").innerHTML = `<div style="text-align:center;padding:70px 20px;color:var(--ink-soft);font-size:13px;">Đang tải...</div>`;
   } else {
-    state.currentEmployeeId = null;
+    // Không có mã trên URL — thường gặp khi mở lại từ icon PWA đã cài (start_url
+    // cố định không mang theo ?ma=). Thử khôi phục theo mã đăng nhập gần nhất.
+    const lastCode = getLastCode();
+    const found = lastCode ? EMPLOYEES.find(e=>e.code===lastCode) : null;
+    state.currentEmployeeId = found ? found.id : null;
     renderAll();
   }
 
@@ -1766,8 +1786,16 @@ function renderOverviewTab(emp){
   if(loaded){
     // Sau khi có danh sách THẬT từ Sheet, dò lại link cá nhân (?ma=) theo danh sách thật
     const realUrlEmp = getUrlEmployeeId();
-    if(realUrlEmp) state.currentEmployeeId = realUrlEmp;
-    else if(state.currentEmployeeId && !getEmp(state.currentEmployeeId)) state.currentEmployeeId = null;
+    if(realUrlEmp){
+      state.currentEmployeeId = realUrlEmp;
+      saveLastCode(getEmp(realUrlEmp)?.code);
+    } else if(!state.currentEmployeeId){
+      const lastCode = getLastCode();
+      const found = lastCode ? EMPLOYEES.find(e=>e.code===lastCode) : null;
+      if(found) state.currentEmployeeId = found.id;
+    } else if(!getEmp(state.currentEmployeeId)){
+      state.currentEmployeeId = null;
+    }
   }
   renderAll();
 })();
