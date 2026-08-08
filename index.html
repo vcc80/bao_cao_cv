@@ -506,12 +506,9 @@ function renderHomeScreen(emp){
 function renderLandingGate(){
   document.getElementById("sidebar").innerHTML = "";
   document.getElementById("tabs").innerHTML = "";
-  document.getElementById("tabContent").innerHTML = `
-    <div class="panel" style="text-align:center;padding:40px 24px;">
-      <h3 style="margin-bottom:8px;">Chào mừng đến hệ thống báo cáo</h3>
-      <div class="hint" style="margin-bottom:0;">Nhập mã nhân viên ở góc trên bên phải để bắt đầu, hoặc dùng đúng link cá nhân đã được cấp (dạng ...?ma=MÃ_NV).</div>
-      ${!apiConfigured()? `<div class="hint" style="color:var(--rose);margin-top:14px;">⚠️ Hệ thống chưa kết nối được Google Sheet nhân sự (API_URL chưa cấu hình) — đang hiển thị danh sách demo tạm thời, không phải danh sách thật.</div>` : ""}
-    </div>`;
+  document.getElementById("tabContent").innerHTML = !apiConfigured()
+    ? `<div class="hint" style="color:var(--rose);text-align:center;padding:16px 24px;">⚠️ Hệ thống chưa kết nối được Google Sheet nhân sự (API_URL chưa cấu hình) — đang hiển thị danh sách demo tạm thời, không phải danh sách thật.</div>`
+    : "";
 }
 function renderTopSelect(emp){
   const options = EMPLOYEES.map(e=>
