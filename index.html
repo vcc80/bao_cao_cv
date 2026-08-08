@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Quản trị công việc, đào tạo &amp; đánh giá</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#F4F7F5; --surface:#FFFFFF; --ink:#16302B; --ink-soft:#5C7169; --line:#DCE6E1;
+  --teal:#2F6F62; --teal-deep:#1F4A40; --teal-soft:#E3EFEA;
+  --amber:#DB9536; --amber-soft:#FBEDD8;
+  --rose:#BE5648; --rose-soft:#F7E3E0;
+  --green:#4C8C6B; --green-soft:#E3EFE7;
+  --indigo:#4D57C7; --indigo-soft:#E4E7FB;
+  --slate:#7A8A85; --gold:#B4862B; --gold-soft:#F6EBD2;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.serif{font-family:'Source Serif 4',serif;}
+
+.topbar{background:var(--teal-deep);color:#fff;padding:16px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.topbar .brand{display:flex;flex-direction:column;gap:2px;}
+.topbar .brand .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9FC3B7;}
+.topbar .brand h1{font-family:'Source Serif 4',serif;font-weight:600;font-size:20px;margin:0;}
+.topbar select{background:#1A423A;color:#fff;border:1px solid #3A6B5E;border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;}
+.login-box{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.login-box input[type=text]{background:#1A423A;color:#fff;border:1px solid #3A6B5E;border-radius:8px;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;width:170px;}
+.login-box input[type=text]::placeholder{color:#8FB3A6;}
+.login-hint{font-size:10.5px;color:#9FC3B7;width:100%;text-align:right;}
+
+.layout{display:flex;gap:22px;max-width:1220px;margin:22px auto;padding:0 20px 60px;align-items:flex-start;}
+@media (max-width:880px){.layout{flex-direction:column;}}
+.sidebar{width:270px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;}
+@media (max-width:880px){.sidebar{width:100%;}}
+
+.badge-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;position:relative;overflow:hidden;}
+.badge-card::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:var(--teal);}
+.badge-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Source Serif 4',serif;font-weight:600;font-size:19px;color:#fff;margin-bottom:12px;}
+.badge-card h2{margin:0 0 2px;font-family:'Source Serif 4',serif;font-size:18px;}
+.badge-card .role{color:var(--ink-soft);font-size:12.5px;margin-bottom:8px;}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--teal-soft);color:var(--teal-deep);}
+.tag.branch{background:var(--amber-soft);color:var(--amber);}
+.badge-code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--slate);display:flex;justify-content:space-between;border-top:1px dashed var(--line);padding-top:10px;}
+
+.streak-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
+.streak-box h3{margin:0 0 4px;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:.05em;color:var(--ink-soft);text-transform:uppercase;}
+.streak-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px;}
+.streak-cell{aspect-ratio:1;border-radius:4px;background:var(--line);}
+.streak-cell.on{background:var(--teal);}
+.streak-note{font-size:11.5px;color:var(--slate);margin-top:8px;}
+
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;}
+.stat-box{flex:1;min-width:78px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center;}
+.stat-box .num{font-family:'Source Serif 4',serif;font-size:20px;font-weight:600;color:var(--teal-deep);}
+.stat-box .lbl{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
+
+.main{flex:1;min-width:0;}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap;}
+.tab-btn{background:none;border:none;padding:10px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab-btn.active{color:var(--teal-deep);border-bottom-color:var(--teal);}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:18px;}
+.panel h3{margin:0 0 14px;font-family:'Source Serif 4',serif;font-size:17px;}
+.panel .hint{color:var(--ink-soft);font-size:12.5px;margin:-8px 0 16px;}
+
+label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:14px 0 5px;}
+label:first-of-type{margin-top:0;}
+textarea,input[type=text],input[type=date],select.form-input{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px 12px;font-family:'Inter',sans-serif;font-size:16px;color:var(--ink);background:#FBFCFB;}
+textarea{min-height:88px;resize:vertical;line-height:1.5;}
+.issue-row{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;flex-wrap:wrap;}
+.issue-row input,.issue-row select{flex:1;min-width:120px;}
+.sev-select{width:130px;flex-shrink:0;}
+.btn{border:none;border-radius:10px;padding:13px 20px;font-family:'Inter',sans-serif;font-weight:600;font-size:15px;cursor:pointer;min-height:46px;}
+.btn-primary{background:var(--teal);color:#fff;}
+.btn-primary:hover{background:var(--teal-deep);}
+.btn-ghost{background:var(--teal-soft);color:var(--teal-deep);}
+.btn-small{padding:9px 14px;font-size:13px;border-radius:8px;min-height:38px;}
+.btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+
+.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media (max-width:760px){.kanban{grid-template-columns:1fr;}}
+.kcol{background:#FAFBFA;border:1px solid var(--line);border-radius:12px;padding:10px;min-height:80px;}
+.kcol h4{margin:2px 6px 10px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px;}
+.card .title{font-weight:600;font-size:13px;margin-bottom:5px;}
+.card .meta{font-size:11px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
+.pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;margin-left:6px;}
+.pill.urgent{background:var(--rose-soft);color:var(--rose);}
+.pill.normal{background:var(--teal-soft);color:var(--teal-deep);}
+.pill.src-assigned{background:var(--indigo-soft);color:var(--indigo);}
+.pill.src-reported{background:var(--rose-soft);color:var(--rose);}
+.pill.src-planned{background:var(--line);color:var(--ink-soft);}
+.card .feedback{margin-top:8px;padding:8px 9px;background:var(--amber-soft);border-left:3px solid var(--amber);border-radius:6px;font-size:12px;}
+.card .feedback b{color:var(--teal-deep);}
+select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
+
+.train-card{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;}
+.train-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
+.train-card .title{font-family:'Source Serif 4',serif;font-size:15.5px;font-weight:600;}
+.train-card .sub{font-size:11.5px;color:var(--slate);font-family:'IBM Plex Mono',monospace;margin-top:3px;}
+.status-tag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap;}
+.status-assigned{background:var(--line);color:var(--ink-soft);}
+.status-in_progress{background:var(--amber-soft);color:var(--amber);}
+.status-submitted{background:var(--indigo-soft);color:var(--indigo);}
+.status-completed{background:var(--green-soft);color:var(--green);}
+.progressbar{height:6px;background:var(--line);border-radius:99px;margin:12px 0 4px;overflow:hidden;}
+.progressbar span{display:block;height:100%;background:var(--teal);}
+.eval-box{margin-top:10px;background:var(--green-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;}
+.eval-box .score{color:var(--green);font-weight:700;}
+
+.team-table{width:100%;border-collapse:collapse;}
+.team-table th{text-align:left;font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;font-family:'IBM Plex Mono',monospace;padding:8px 10px;border-bottom:1px solid var(--line);}
+.team-table td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top;}
+.team-table tr:last-child td{border-bottom:none;}
+.overdue{color:var(--rose);font-weight:600;}
+.empty{color:var(--slate);font-size:12.5px;padding:16px 4px;}
+.assign-box{border:1px dashed var(--line);border-radius:12px;padding:16px;margin-bottom:16px;}
+.ai-note{background:var(--teal-soft);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--teal-deep);margin-bottom:16px;}
+.ai-note b{display:block;font-family:'Source Serif 4',serif;font-size:13.5px;margin-bottom:3px;}
+
+.status-picker{display:flex;gap:8px;flex-wrap:wrap;}
+.status-pill{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-soft);}
+.status-pill.st-ok.active{background:var(--green-soft);border-color:var(--green);color:var(--green);}
+.status-pill.st-attention.active{background:var(--amber-soft);border-color:var(--amber);color:var(--amber);}
+.status-pill.st-urgent.active{background:var(--rose-soft);border-color:var(--rose);color:var(--rose);}
+
+.c-block{border-radius:12px;padding:16px 18px;margin:20px 0;background:#FBFCFB;}
+.c-block.c-indigo{border-left:4px solid var(--indigo);}
+.c-block.c-amber{border-left:4px solid var(--amber);}
+.c-block.c-green{border-left:4px solid var(--green);}
+.c-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;}
+.c-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Source Serif 4',serif;font-weight:700;font-size:14px;color:#fff;}
+.c-indigo .c-num{background:var(--indigo);} .c-amber .c-num{background:var(--amber);} .c-green .c-num{background:var(--green);}
+.c-tag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);}
+.c-question{font-size:13.5px;font-weight:600;margin-top:2px;}
+.reminder-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+.reminder-pill{font-size:11px;background:var(--indigo-soft);color:var(--indigo);padding:4px 10px;border-radius:99px;font-weight:600;}
+.guide-steps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0;font-size:11.5px;font-weight:700;}
+.guide-steps span.step{background:var(--amber-soft);color:var(--amber);padding:5px 12px;border-radius:99px;}
+.guide-steps .arrow{color:var(--slate);}
+.role-label{font-size:12px;font-weight:700;color:var(--ink-soft);margin:12px 0 5px;display:block;}
+.role-label:first-of-type{margin-top:0;}
+.readiness-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px;}
+.readiness-opt{flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;font-size:12px;background:var(--surface);}
+.readiness-opt b{display:block;font-size:12.5px;margin-bottom:2px;}
+.readiness-opt.ready.active{border-color:var(--green);background:var(--green-soft);}
+.readiness-opt.conditional.active{border-color:var(--amber);background:var(--amber-soft);}
+.readiness-opt.notready.active{border-color:var(--rose);background:var(--rose-soft);}
+.status-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;display:inline-block;margin-bottom:8px;}
+.status-badge.ok{background:var(--green-soft);color:var(--green);}
+.status-badge.attention{background:var(--amber-soft);color:var(--amber);}
+.status-badge.urgent{background:var(--rose-soft);color:var(--rose);}
+
+.wizard-panel{padding-bottom:14px;}
+.step-dots{display:flex;gap:6px;margin:2px 0 6px;}
+.step-dot{flex:1;height:5px;border-radius:99px;background:var(--line);}
+.step-dot.active{background:var(--teal);}
+.step-dot.done{background:var(--teal-soft);}
+.step-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:16px;}
+.step-count{color:var(--slate);}
+.wizard-nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px;}
+.wizard-nav .btn{flex:1;}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;}
+.pos-chip{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;min-height:44px;}
+.pos-chip .chip-sub{display:block;font-size:10.5px;font-weight:500;color:var(--slate);margin-top:1px;}
+.pos-chip.active{border-color:var(--teal);background:var(--teal-soft);color:var(--teal-deep);}
+.pos-chip.active .chip-sub{color:var(--teal-deep);}
+.review-row{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;position:relative;}
+.review-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;margin-bottom:4px;}
+.review-value{font-size:13.5px;line-height:1.5;padding-right:78px;white-space:pre-wrap;}
+.review-row .btn{position:absolute;top:10px;right:10px;}
+@media (max-width:600px){
+  .layout{margin:0 auto;padding:0 12px 90px;gap:14px;}
+  .topbar{padding:14px 16px;}
+  .topbar h1{font-size:17px;}
+  .panel{padding:16px;border-radius:12px;}
+  .kanban{gap:10px;}
+  .status-pill{flex:1;min-width:0;padding:12px 8px;font-size:12.5px;text-align:center;}
+  .login-box{width:100%;}
+  .login-box input[type=text]{flex:1;width:auto;}
+  .login-hint{display:none;}
+}
+
+.eval-card{border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:10px;}
+.eval-card .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.eval-card .period{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate);}
+.eval-score-big{font-family:'Source Serif 4',serif;font-size:24px;font-weight:700;color:var(--teal-deep);}
+.eval-crit{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;}
+.eval-crit span{font-size:11.5px;color:var(--ink-soft);background:var(--bg);padding:4px 9px;border-radius:6px;}
+.reward-flag{background:var(--gold-soft);color:var(--gold);font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;}
+.score-input-row{display:flex;gap:10px;flex-wrap:wrap;}
+.score-input-row div{flex:1;min-width:110px;}
+
+.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:760px){.overview-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <span class="eyebrow">Phòng Khám Đa Khoa Dân Y — Mô hình quản trị 2 lớp</span>
+    <h1>Quản trị công việc, đào tạo &amp; đánh giá</h1>
+  </div>
+  <div class="login-box">
+    <input type="text" id="empCodeInput" placeholder="Nhập mã NV, VD: NV-014" onkeydown="if(event.key==='Enter')loginByCode()">
+    <button class="btn btn-primary btn-small" onclick="loginByCode()">Vào báo cáo</button>
+    <select id="personaSelect" onchange="switchEmployee(this.value)" title="(Demo) chọn nhanh nhân sự"></select>
+    <span class="login-hint">Mỗi nhân viên dùng link riêng — xem mã ở cuối link (?ma=NV-014)</span>
+  </div>
+</div>
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="tabs" id="tabs"></div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<script>
+const DEPT_COLORS = {
+  "Điều dưỡng":"#2F6F62","Cận lâm sàng":"#4D57C7","Lễ tân - CSKH":"#DB9536",
+  "Dược":"#4C8C6B","Nhân sự":"#BE5648","Ban điều hành":"#16302B","Vận hành cơ sở":"#8A6D3B"
+};
+const ROLE_LABELS = {
+  staff:"Nhân viên", leader:"Leader chuyên môn tại chi nhánh",
+  som:"SOM — Quản lý vận hành chi nhánh", functional_head:"Trưởng ban chuyên môn hệ thống",
+  director:"Ban điều hành"
+};
+
+const EMPLOYEES = [
+  {id:"nv01",code:"NV-014",name:"Nguyễn Thị Lan",khoi:"Điều dưỡng",branch:"DY1",role:"staff",email:"lan.nv014@danyclinic.vn"},
+  {id:"nv02",code:"NV-027",name:"Trần Văn Minh",khoi:"Cận lâm sàng",branch:"DY1",role:"staff",email:"minh.nv027@danyclinic.vn"},
+  {id:"nv03",code:"NV-033",name:"Lê Thị Hương",khoi:"Lễ tân - CSKH",branch:"DY2",role:"staff",email:"huong.nv033@danyclinic.vn"},
+  {id:"nv07",code:"NV-041",name:"Vũ Thị Nga",khoi:"Điều dưỡng",branch:"DY1",role:"leader",email:"nga.nv041@danyclinic.vn"},
+  {id:"nv08",code:"NV-009",name:"Bùi Văn Sơn",khoi:"Vận hành cơ sở",branch:"DY1",role:"som",email:"son.nv009@danyclinic.vn"},
+  {id:"nv04",code:"NV-005",name:"Phạm Văn Đức",khoi:"Điều dưỡng",branch:"Hội sở",role:"functional_head",email:"duc.nv005@danyclinic.vn"},
+  {id:"nv05",code:"NV-002",name:"Hoàng Thị Mai",khoi:"Nhân sự",branch:"Hội sở",role:"functional_head",email:"mai.nv002@danyclinic.vn"},
+  {id:"nv06",code:"NV-001",name:"Đỗ Văn Tùng",khoi:"Ban điều hành",branch:"Hội sở",role:"director",email:"tung.nv001@danyclinic.vn"},
+];
+
+/** ================= KẾT NỐI GOOGLE SHEET (Apps Script Web App) =================
+ * Sau khi deploy Code.gs làm Web App, dán URL vào đây (dạng .../exec).
+ * Chưa dán thì app vẫn chạy được, chỉ riêng phần Báo cáo sẽ lưu tạm cục bộ
+ * và tính năng "Ai đã báo cáo hôm nay" sẽ báo chưa kết nối. */
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+function apiConfigured(){ return API_URL && API_URL.indexOf("PASTE_")===-1; }
+async function apiGet(action, params){
+  const url = new URL(API_URL);
+  url.searchParams.set("action", action);
+  Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if(data && data.error) throw new Error(data.error);
+  return data;
+}
+async function apiPost(action, data){
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" }, // tránh preflight CORS với Apps Script
+    body: JSON.stringify({action, data})
+  });
+  const out = await res.json();
+  if(out && out.error) throw new Error(out.error);
+  return out;
+}
+
+const PROCEDURES = [
+  {id:"p1", code:1, khoi:"Điều dưỡng", position:"Tiêm truyền tĩnh mạch", title:"Quy trình tiêm truyền tĩnh mạch an toàn",
+   summary:"Các bước chuẩn bị, sát khuẩn, thực hiện tiêm truyền và theo dõi phản ứng sau tiêm cho người bệnh.",
+   quiz:[{q:"Bước đầu tiên trước khi tiêm truyền là gì?", options:["Sát khuẩn vị trí tiêm","Rút thuốc","Ghi hồ sơ"], answerIdx:0},
+         {q:"Khi bệnh nhân có phản ứng bất thường, điều dưỡng cần làm gì trước tiên?", options:["Tiếp tục truyền cho hết","Ngừng truyền và báo bác sĩ","Ghi chú vào sổ trực"], answerIdx:1}]},
+  {id:"p2", code:2, khoi:"Điều dưỡng", position:"Thay băng vết thương", title:"Quy trình thay băng vô khuẩn",
+   summary:"Hướng dẫn thay băng đúng kỹ thuật vô khuẩn và đánh giá tình trạng vết thương.",
+   quiz:[{q:"Dụng cụ thay băng cần đảm bảo điều gì?", options:["Vô khuẩn","Giá rẻ","Có màu sắc bắt mắt"], answerIdx:0}]},
+  {id:"p3", code:3, khoi:"Cận lâm sàng", position:"Lấy mẫu xét nghiệm máu", title:"Quy trình lấy mẫu máu xét nghiệm",
+   summary:"Các bước xác minh thông tin bệnh nhân, kỹ thuật lấy mẫu, bảo quản và vận chuyển mẫu.",
+   quiz:[{q:"Trước khi lấy mẫu cần xác minh gì?", options:["Thông tin định danh bệnh nhân","Cân nặng bệnh nhân","Số điện thoại người thân"], answerIdx:0},
+         {q:"Mẫu máu sau khi lấy cần được?", options:["Để ngoài trời","Bảo quản đúng nhiệt độ theo quy định","Lắc mạnh liên tục"], answerIdx:1}]},
+  {id:"p4", code:4, khoi:"Lễ tân - CSKH", position:"Đón tiếp khách hàng", title:"Quy trình đón tiếp và hướng dẫn khách hàng",
+   summary:"Chuẩn mực chào đón, hướng dẫn quy trình khám, xử lý tình huống đông khách.",
+   quiz:[{q:"Khi khách phàn nàn về thời gian chờ, lễ tân nên?", options:["Phớt lờ","Lắng nghe và thông báo tình trạng xử lý","Tranh cãi với khách"], answerIdx:1}]},
+  {id:"p5", code:5, khoi:"Lễ tân - CSKH", position:"Xử lý khiếu nại", title:"Quy trình tiếp nhận và xử lý khiếu nại",
+   summary:"Các bước ghi nhận khiếu nại, phân loại mức độ, chuyển bộ phận liên quan và phản hồi khách hàng.",
+   quiz:[{q:"Khiếu nại liên quan chuyên môn y khoa cần chuyển đến?", options:["Bộ phận Điều dưỡng/Bác sĩ phụ trách","Tự lễ tân xử lý","Bỏ qua"], answerIdx:0}]},
+];
+
+const SEED = {
+  reports:[
+    {id:"r1",employeeId:"nv01",date:"2026-07-28",status:"attention",
+     c1_self:"Hôm nay hỗ trợ 20 BN. Máy đo huyết áp phòng 3 hiển thị sai số, đã báo kỹ thuật. Không có phản ánh không hài lòng.", c1_dept:"",
+     c2_self:"Đề xuất có bảng kiểm tra thiết bị đầu ca để phát hiện lỗi sớm hơn.", c2_dept:"",
+     c3_self:"Ngày mai tiếp tục theo dõi máy đo huyết áp, nếu chưa sửa xong sẽ dùng máy dự phòng.", c3_dept:"",
+     readiness:null, readinessSupport:""},
+    {id:"r2",employeeId:"nv01",date:"2026-07-29",status:"ok",
+     c1_self:"Hỗ trợ thay băng, theo dõi sinh hiệu 20 lượt. Người bệnh phòng 5 khen thái độ chăm sóc tận tình.", c1_dept:"",
+     c2_self:"Không có gì cần thay đổi, quy trình vẫn ổn.", c2_dept:"",
+     c3_self:"Ngày mai tiếp tục ca như bình thường.", c3_dept:"",
+     readiness:null, readinessSupport:""},
+    {id:"r3",employeeId:"nv03",date:"2026-07-29",status:"attention",
+     c1_self:"Đón tiếp 64 lượt khách, hỗ trợ đăng ký online 12 ca. Một khách phàn nàn thời gian chờ buổi sáng hơn 20 phút.", c1_dept:"",
+     c2_self:"Đã chủ động thông báo tình trạng chờ cho khách, giảm bức xúc.", c2_dept:"",
+     c3_self:"Ngày mai đề xuất thêm màn hình lấy số tự động ở sảnh để giảm ùn ứ.", c3_dept:"",
+     readiness:null, readinessSupport:""},
+  ],
+  tasks:[
+    {id:"t1",employeeId:"nv01",title:"Máy đo huyết áp phòng 3 hiển thị sai số",severity:"urgent",source:"reported",status:"in_progress",createdAt:"2026-07-28",
+     dueDate:"2026-08-05",assignedBy:null,feedback:"Đã báo kỹ thuật, dự kiến thay cảm biến trước 05/08.",feedbackBy:"Vũ Thị Nga",
+     description:"Máy đo huyết áp tự động tại phòng 3 hiển thị số đo không ổn định, chênh lệch so với đo tay.",
+     steps:[{text:"Báo kỹ thuật thiết bị kiểm tra",done:true},{text:"Ngừng sử dụng máy, dùng máy dự phòng",done:true},{text:"Thay/hiệu chỉnh cảm biến",done:false}],
+     doer:"Nguyễn Thị Lan", reviewer:"Vũ Thị Nga", reportTo:"Bùi Văn Sơn", detailStatus:"Đang triển khai", note:"Đã liên hệ nhà cung cấp thiết bị.", onBoard:true},
+    {id:"t2",employeeId:"nv03",title:"Thời gian chờ lấy số buổi sáng kéo dài",severity:"normal",source:"reported",status:"new",createdAt:"2026-07-29",
+     dueDate:null,assignedBy:null,feedback:null,feedbackBy:null,
+     description:"Khách hàng phải chờ trên 20 phút để lấy số vào khung giờ 7h30–8h30.",
+     steps:[], doer:"Lê Thị Hương", reviewer:"Bùi Văn Sơn", reportTo:"Bùi Văn Sơn", detailStatus:"Chưa xử lý", note:"", onBoard:false},
+    {id:"t3",employeeId:"nv02",title:"Đề xuất dán nhãn màu ống nghiệm theo khoa",severity:"normal",source:"planned",status:"new",createdAt:"2026-07-30",
+     dueDate:null,assignedBy:null,feedback:null,feedbackBy:null,
+     description:"Dán nhãn màu theo từng khoa để tránh nhầm lẫn ống nghiệm khi lấy mẫu.",
+     steps:[], doer:"Trần Văn Minh", reviewer:"Phạm Văn Đức", reportTo:"Phạm Văn Đức", detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true},
+    {id:"t4",employeeId:"nv07",title:"Rà soát định mức nhân sự trực cuối tuần DY1",severity:"normal",source:"assigned",status:"new",createdAt:"2026-07-30",
+     dueDate:"2026-08-06",assignedBy:"Bùi Văn Sơn",feedback:null,feedbackBy:null,
+     description:"Rà soát lại số lượng nhân sự trực thứ 7, chủ nhật để đảm bảo đủ người theo lưu lượng khách.",
+     steps:[{text:"Thống kê lưu lượng khách 4 tuần gần nhất",done:false},{text:"Đề xuất định mức mới",done:false}],
+     doer:"Vũ Thị Nga", reviewer:"Bùi Văn Sơn", reportTo:"Bùi Văn Sơn", detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true},
+  ],
+  trainings:[
+    {id:"tr1",employeeId:"nv01",title:"Kiểm soát nhiễm khuẩn bệnh viện",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"completed",dueDate:"2026-07-15",score:5,note:"Nắm vững quy trình, xử lý tình huống tốt.",skills:"Quy trình vô khuẩn, xử lý vật sắc nhọn"},
+    {id:"tr2",employeeId:"nv01",title:"Cấp cứu ngừng tim cơ bản (BLS)",assignedBy:"Phạm Văn Đức",evaluator:"Phạm Văn Đức",status:"in_progress",dueDate:"2026-08-10",score:null,note:"",skills:""},
+    {id:"tr3",employeeId:"nv03",title:"Kỹ năng giao tiếp với người bệnh",assignedBy:"Hoàng Thị Mai",evaluator:"Bùi Văn Sơn",status:"submitted",dueDate:"2026-08-01",score:null,note:"",skills:""},
+    {id:"tr4",employeeId:"nv02",title:"An toàn sinh học phòng xét nghiệm",assignedBy:"Hoàng Thị Mai",evaluator:"Hoàng Thị Mai",status:"assigned",dueDate:"2026-08-20",score:null,note:"",skills:""},
+  ],
+  evaluations:[
+    {id:"e1",employeeId:"nv01",period:"2026-07",completion:9,attitude:9,initiative:8,note:"Chủ động báo cáo sự cố thiết bị kịp thời, phối hợp tốt.",rewardProposed:true,rewardNote:"Đề xuất khen thưởng nhân viên xuất sắc tháng 7.",evaluator:"Vũ Thị Nga"},
+    {id:"e2",employeeId:"nv03",period:"2026-07",completion:7,attitude:8,initiative:6,note:"Hoàn thành công việc ổn định, cần chủ động đề xuất cải tiến hơn.",rewardProposed:false,rewardNote:"",evaluator:"Bùi Văn Sơn"},
+  ],
+  assignments:[
+    {id:"a1", employeeId:"nv01", position:"Tiêm truyền tĩnh mạch", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
+    {id:"a2", employeeId:"nv01", position:"Thay băng vết thương", khoi:"Điều dưỡng", assignedBy:"Vũ Thị Nga"},
+  ],
+  grants:[
+    {id:"g1", granteeId:"nv08", khoi:"Lễ tân - CSKH", grantedBy:"Đỗ Văn Tùng"},
+  ]
+};
+
+let DATA = null;
+let state = { currentEmployeeId:"nv01", activeTab:"log", openQuiz:null, openWorklog:null, logStep:0, reportStatusHtml:null };
+
+async function loadData(){
+  try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
+  catch(e){ DATA = JSON.parse(JSON.stringify(SEED)); await saveData(); }
+}
+async function saveData(){
+  try{ await window.storage.set("clinic-data-v4", JSON.stringify(DATA), true); }
+  catch(e){ console.error("Lỗi lưu dữ liệu", e); }
+}
+
+function getEmp(id){ return EMPLOYEES.find(e=>e.id===id); }
+function initials(name){ const p=name.split(" "); return (p[p.length-2]?.[0]||"")+(p[p.length-1]?.[0]||""); }
+function todayStr(){ return "2026-08-02"; }
+function fmtDate(d){ if(!d) return "—"; const dt=new Date(d+"T00:00:00"); return dt.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"}); }
+function daysSince(d){ return Math.floor((new Date(todayStr())-new Date(d))/86400000); }
+
+function scopeFor(emp){
+  if(emp.role==="director") return EMPLOYEES.filter(e=>e.id!==emp.id);
+  if(emp.role==="som") return EMPLOYEES.filter(e=>e.branch===emp.branch && e.id!==emp.id);
+  if(emp.role==="functional_head") return EMPLOYEES.filter(e=>e.khoi===emp.khoi && e.id!==emp.id);
+  if(emp.role==="leader") return EMPLOYEES.filter(e=>e.khoi===emp.khoi && e.branch===emp.branch && e.role==="staff");
+  return [];
+}
+
+function switchEmployee(id){ state.currentEmployeeId=id; state.activeTab="log"; state.openQuiz=null; state.openWorklog=null; resetLogDraft(); renderAll(); }
+function loginByCode(){
+  const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
+  if(!raw) return;
+  const emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  if(!emp){ alert("Không tìm thấy mã nhân viên \""+raw+"\" trong danh sách. Vui lòng kiểm tra lại (VD: NV-014)."); return; }
+  switchEmployee(emp.id);
+  document.getElementById("empCodeInput").value = "";
+}
+function getUrlEmployeeId(){
+  const params = new URLSearchParams(window.location.search);
+  const ma = params.get("ma");
+  if(!ma) return null;
+  const emp = EMPLOYEES.find(e=>e.code.toUpperCase()===ma.toUpperCase());
+  return emp ? emp.id : null;
+}
+
+function tabsForRole(role){
+  const tabs=[["log","Báo cáo hôm nay"],["worklog","Nhật ký công việc"],["tasks","Công việc của tôi"],["procedures","Kho quy trình"],["training","Đào tạo của tôi"]];
+  if(role==="leader"||role==="som"||role==="functional_head"||role==="director") tabs.push(["team","Quản lý nhóm"]);
+  tabs.push(["eval","Đánh giá & Khen thưởng"]);
+  if(role==="director") tabs.push(["overview","Tổng hợp toàn hệ thống"]);
+  return tabs;
+}
+function setTab(t){ state.activeTab=t; renderAll(); }
+
+function renderAll(){
+  const emp = getEmp(state.currentEmployeeId);
+  renderTopSelect(emp); renderSidebar(emp); renderTabs(emp); renderContent(emp);
+}
+function renderTopSelect(emp){
+  document.getElementById("personaSelect").innerHTML = EMPLOYEES.map(e=>
+    `<option value="${e.id}" ${e.id===emp.id?"selected":""}>${e.name} — ${ROLE_LABELS[e.role]}</option>`).join("");
+}
+function renderSidebar(emp){
+  const myReports = DATA.reports.filter(r=>r.employeeId===emp.id);
+  const myTasksOpen = DATA.tasks.filter(t=>t.employeeId===emp.id && t.onBoard!==false && t.status!=="done").length;
+  const myTrainingsActive = DATA.trainings.filter(t=>t.employeeId===emp.id && t.status!=="completed").length;
+  const days=[];
+  for(let i=6;i>=0;i--){ const d=new Date(todayStr()); d.setDate(d.getDate()-i); const ds=d.toISOString().slice(0,10); days.push({ds, on: myReports.some(r=>r.date===ds)}); }
+  document.getElementById("sidebar").innerHTML = `
+    <div class="badge-card">
+      <div class="badge-avatar" style="background:${DEPT_COLORS[emp.khoi]||'#2F6F62'}">${initials(emp.name)}</div>
+      <h2>${emp.name}</h2>
+      <div class="role">${ROLE_LABELS[emp.role]}</div>
+      <div class="tagrow"><span class="tag">${emp.khoi}</span><span class="tag branch">${emp.branch}</span></div>
+      <div class="badge-code"><span>${emp.code}</span><span>Đang xem hồ sơ</span></div>
+    </div>
+    <div class="streak-box">
+      <h3>Chuỗi báo cáo 7 ngày</h3>
+      <div class="streak-grid">${days.map(d=>`<div class="streak-cell ${d.on?'on':''}" title="${d.ds}"></div>`).join("")}</div>
+      <div class="streak-note">${myReports.length} nhật ký đã ghi nhận</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="num">${myTasksOpen}</div><div class="lbl">việc đang mở</div></div>
+      <div class="stat-box"><div class="num">${myTrainingsActive}</div><div class="lbl">khóa đang học</div></div>
+    </div>
+  `;
+}
+function renderTabs(emp){
+  const tabs = tabsForRole(emp.role);
+  if(!tabs.find(t=>t[0]===state.activeTab)) state.activeTab=tabs[0][0];
+  document.getElementById("tabs").innerHTML = tabs.map(([key,label])=>
+    `<button class="tab-btn ${state.activeTab===key?'active':''}" onclick="setTab('${key}')">${label}</button>`).join("");
+}
+function renderContent(emp){
+  const el = document.getElementById("tabContent");
+  if(state.activeTab==="log") el.innerHTML = renderLogTab(emp);
+  else if(state.activeTab==="worklog") el.innerHTML = renderWorklogTab(emp);
+  else if(state.activeTab==="tasks") el.innerHTML = renderTasksTab(emp);
+  else if(state.activeTab==="procedures") el.innerHTML = renderProceduresTab(emp);
+  else if(state.activeTab==="training") el.innerHTML = renderTrainingTab(emp);
+  else if(state.activeTab==="team") el.innerHTML = renderTeamTab(emp);
+  else if(state.activeTab==="eval") el.innerHTML = renderEvalTab(emp);
+  else if(state.activeTab==="overview") el.innerHTML = renderOverviewTab(emp);
+}
+
+let logStatus = "ok";
+let readinessDraft = "ready";
+let followUpDraft = [];
+let selectedPositions = [];
+let logDraft = {c1_self:"",c1_dept:"",c2_self:"",c2_dept:"",c3_self:"",c3_dept:"",c3_support:""};
+function resetLogDraft(){
+  logStatus="ok"; readinessDraft="ready"; followUpDraft=[]; selectedPositions=[];
+  logDraft = {c1_self:"",c1_dept:"",c2_self:"",c2_dept:"",c3_self:"",c3_dept:"",c3_support:""};
+  state.logStep = 0;
+}
+function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function scopeLabelFor(emp){
+  if(emp.role==="som") return `chi nhánh ${emp.branch}`;
+  if(emp.role==="functional_head") return `khối ${emp.khoi}`;
+  if(emp.role==="director") return "toàn hệ thống";
+  if(emp.role==="leader") return `tổ ${emp.khoi} - ${emp.branch}`;
+  return "";
+}
+function setLogStatus(v){ logStatus=v; renderAll(); }
+function statusBtn(val,icon,label){
+  const cls = val==="ok"?"st-ok":val==="attention"?"st-attention":"st-urgent";
+  return `<button type="button" class="status-pill ${cls} ${logStatus===val?'active':''}" onclick="setLogStatus('${val}')">${icon} ${label}</button>`;
+}
+function togglePosition(code){
+  const i = selectedPositions.indexOf(code);
+  if(i>-1) selectedPositions.splice(i,1); else selectedPositions.push(code);
+  renderAll();
+}
+function nextLogStep(){ if(state.logStep<4) state.logStep++; renderAll(); window.scrollTo(0,0); }
+function prevLogStep(){ if(state.logStep>0) state.logStep--; renderAll(); window.scrollTo(0,0); }
+function goToStep(n){ state.logStep=n; renderAll(); window.scrollTo(0,0); }
+
+function renderLogTab(emp){
+  const isManager = scopeFor(emp).length>0;
+  const steps = ["Thông tin nhanh","C1 · Hôm nay","C2 · Cải tiến","C3 · Ngày mai","Xem lại & Gửi"];
+  const step = state.logStep||0;
+  let body;
+  if(step===0) body = stepStatusPosition(emp);
+  else if(step===1) body = stepC(emp,isManager,1,"indigo","Complete","Kết quả & tình hình hôm nay");
+  else if(step===2) body = stepC(emp,isManager,2,"amber","Change","Hôm nay đã làm tốt hơn được gì?");
+  else if(step===3) body = stepC(emp,isManager,3,"green","Continue","Ngày mai làm gì & đã sẵn sàng chưa?");
+  else body = stepReview(emp,isManager);
+
+  return `
+  <div class="panel wizard-panel">
+    <h3 style="margin-bottom:8px;">Báo cáo 3C — cuối ngày ${fmtDate(todayStr())}</h3>
+    <div class="step-dots">${steps.map((s,i)=>`<div class="step-dot ${i===step?'active':''} ${i<step?'done':''}"></div>`).join("")}</div>
+    <div class="step-label">${steps[step]} · Bước ${step+1}/${steps.length}</div>
+    ${body}
+    <div class="wizard-nav">
+      ${step>0? `<button type="button" class="btn btn-ghost" onclick="prevLogStep()">← Quay lại</button>` : `<span></span>`}
+      ${step<4? `<button type="button" class="btn btn-primary" onclick="nextLogStep()">Tiếp theo →</button>`
+                : `<button type="button" class="btn btn-primary" onclick="submitLog('${emp.id}')">✓ Gửi báo cáo hôm nay</button>`}
+    </div>
+  </div>
+  <div class="panel"><h3>Báo cáo gần đây của tôi</h3>${renderMyRecentLogs(emp)}</div>`;
+}
+function readinessLabelText(v){ return v==="ready"?"✅ Sẵn sàng":v==="conditional"?"⚠️ Có điều kiện":"❌ Chưa sẵn sàng"; }
+function stepReview(emp,isManager){
+  const posNames = selectedPositions.map(c=>{ const p=PROCEDURES.find(x=>x.code===c); return p? p.position : null; }).filter(Boolean);
+  const followUps = followUpDraft.filter(i=>i.title.trim());
+  return `
+    <div class="hint" style="margin-top:0;">Xem lại toàn bộ nội dung trước khi gửi. Đúng rồi thì bấm "Gửi báo cáo hôm nay" bên dưới — cần sửa chỗ nào thì bấm "Chỉnh sửa" ngay tại mục đó.</div>
+    <div class="review-row">
+      <div class="review-label">Trạng thái chung</div>
+      <div class="review-value"><span class="status-badge ${logStatus}">${statusLabel(logStatus)}</span></div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(0)">Chỉnh sửa</button>
+    </div>
+    <div class="review-row">
+      <div class="review-label">Vị trí hôm nay</div>
+      <div class="review-value">${posNames.length? posNames.join(", ") : "<i>(chưa chọn)</i>"}</div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(0)">Chỉnh sửa</button>
+    </div>
+    ${reviewC(1,"C1 · Hôm nay")}
+    ${reviewC(2,"C2 · Cải tiến")}
+    ${reviewC(3,"C3 · Ngày mai")}
+    ${isManager? `<div class="review-row">
+      <div class="review-label">Sẵn sàng ngày mai</div>
+      <div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support? " — "+escHtml(logDraft.c3_support) : ""}</div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(3)">Chỉnh sửa</button>
+    </div>` : ""}
+    ${followUps.length? `<div class="review-row">
+      <div class="review-label">Việc cần theo dõi (sẽ tạo thẻ công việc)</div>
+      <div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(3)">Chỉnh sửa</button>
+    </div>` : ""}`;
+}
+function reviewC(num, label){
+  const selfKey = "c"+num+"_self", deptKey = "c"+num+"_dept";
+  let html = `<div class="review-row">
+      <div class="review-label">${label} — cá nhân</div>
+      <div class="review-value">${logDraft[selfKey]? escHtml(logDraft[selfKey]) : "<i>(trống)</i>"}</div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(${num})">Chỉnh sửa</button>
+    </div>`;
+  if(logDraft[deptKey]){
+    html += `<div class="review-row">
+      <div class="review-label">${label} — bộ phận</div>
+      <div class="review-value">${escHtml(logDraft[deptKey])}</div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="goToStep(${num})">Chỉnh sửa</button>
+    </div>`;
+  }
+  return html;
+}
+function stepStatusPosition(emp){
+  return `
+    <label style="margin-top:0;">Trạng thái chung hôm nay</label>
+    <div class="status-picker">
+      ${statusBtn("ok","🙂","Bình thường")}
+      ${statusBtn("attention","😐","Cần chú ý")}
+      ${statusBtn("urgent","⚠️","Cần xử lý ngay")}
+    </div>
+    <label>Hôm nay tôi làm những vị trí nào? (chạm để chọn, có thể chọn nhiều)</label>
+    <div class="chip-row">
+      ${PROCEDURES.map(p=>`<button type="button" class="pos-chip ${selectedPositions.includes(p.code)?'active':''}" onclick="togglePosition(${p.code})">${p.position}<span class="chip-sub">${p.khoi}</span></button>`).join("")}
+    </div>`;
+}
+function stepC(emp, isManager, num, color, tag, question){
+  const guide = num===1 ? `<div class="reminder-row">
+        <span class="reminder-pill">Khách hàng/BN</span><span class="reminder-pill">MMTB</span><span class="reminder-pill">Vật tư</span><span class="reminder-pill">Quy trình</span><span class="reminder-pill">Nhân sự</span>
+      </div>` : num===2 ? `<div class="guide-steps"><span class="step">Phát hiện vấn đề</span><span class="arrow">→</span><span class="step">Xử lý trước mắt</span><span class="arrow">→</span><span class="step">Đề xuất xử lý tận gốc</span></div>` : "";
+  const selfLabel = num===1? "A. Vai trò cá nhân — bạn đã làm được gì, BN nói gì?"
+    : num===2? "A. Vai trò cá nhân — hôm nay bạn đã cải tiến/chuẩn hóa được cách làm gì? Bạn có đề xuất cải tiến/chuẩn hóa vấn đề gì? Bạn góp ý vấn đề gì?"
+    : "A. Vai trò cá nhân — ngày mai bạn tiếp tục/ưu tiên việc gì?";
+  const deptLabel = num===1? "B. Vai trò Trưởng bộ phận — bộ phận hoạt động thế nào?"
+    : num===2? "B. Vai trò Trưởng bộ phận — bộ phận đã chuẩn hóa/cải tiến gì?"
+    : "B. Vai trò Trưởng bộ phận — bộ phận ưu tiên việc gì, cần ai hỗ trợ?";
+  const selfPh = num===1? "Ví dụ: Hôm nay hỗ trợ 35 BN. Công việc bình thường, MMTB và vật tư đầy đủ. Có 2 BN khen hướng dẫn nhiệt tình."
+    : num===2? "Ví dụ: Thấy vật tư lấy máu để chưa thuận tay → sắp xếp lại theo thứ tự sử dụng. Thao tác thuận tiện hơn."
+    : "Ví dụ: Ngày mai tiếp tục theo dõi máy in tem, nếu lỗi lại sẽ ghi thời điểm để chuyển IT kiểm tra.";
+  const deptPh = num===1? "Ví dụ: Bộ phận phục vụ 186 BN. Nhân sự đủ, máy móc bình thường, không tồn đọng cuối ngày."
+    : num===2? "Ví dụ: Có 2 lần NV phải đi tìm giấy in → thống nhất mức tồn tối thiểu 5 cuộn/quầy, đưa vào checklist cuối ngày."
+    : "Ví dụ: Ngày mai dự kiến đông BN, thiếu 1 NV ca sáng chưa có người thay — cần Quản lý xác nhận người hỗ trợ.";
+  const selfKey = "c"+num+"_self", deptKey = "c"+num+"_dept";
+  let html = `<div class="c-block c-${color}" style="margin-top:0;">
+    <div class="c-head"><span class="c-num">${num}</span><div><div class="c-tag">${tag}</div><div class="c-question">${question}</div></div></div>
+    ${guide}
+    <span class="role-label">${selfLabel}</span>
+    <textarea id="${selfKey}" oninput="logDraft.${selfKey}=this.value" placeholder="${selfPh}">${escHtml(logDraft[selfKey])}</textarea>
+    ${isManager? `<span class="role-label">${deptLabel}</span>
+    <textarea id="${deptKey}" oninput="logDraft.${deptKey}=this.value" placeholder="${deptPh}">${escHtml(logDraft[deptKey])}</textarea>` : ""}
+  </div>`;
+  if(num===3){
+    html += `<div class="c-block c-green">`;
+    if(isManager){
+      html += `<span class="role-label" style="margin-top:0;">Mức độ sẵn sàng cho ngày mai (nhân sự – MMTB – vật tư – quy trình)</span>
+      <div class="readiness-row">
+        ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
+        ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
+        ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
+      </div>
+      ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea id="c3-support" oninput="logDraft.c3_support=this.value" placeholder="Ví dụ: Cần Quản lý xác nhận người hỗ trợ ca sáng mai.">${escHtml(logDraft.c3_support)}</textarea>`:""}`;
+    }
+    html += `<label style="${isManager?'':'margin-top:0;'}">Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
+      <div id="followUpList"></div>
+      <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-ghost btn-small" onclick="addFollowUp()">+ Thêm việc cần theo dõi</button></div>
+    </div>`;
+  }
+  return html;
+}
+function readinessOpt(val,label,desc){
+  return `<div class="readiness-opt ${val} ${readinessDraft===val?'active':''}" onclick="setReadiness('${val}')"><b>${label}</b>${desc}</div>`;
+}
+function setReadiness(v){ readinessDraft=v; renderAll(); }
+function addFollowUp(){ followUpDraft.push({title:"",sev:"normal"}); renderFollowUpList(); }
+function renderFollowUpList(){
+  const el = document.getElementById("followUpList");
+  if(!el) return;
+  el.innerHTML = followUpDraft.map((it,i)=>`
+    <div class="issue-row">
+      <input type="text" placeholder="Việc cần theo dõi..." value="${it.title.replace(/"/g,'&quot;')}" oninput="followUpDraft[${i}].title=this.value">
+      <select class="sev-select" onchange="followUpDraft[${i}].sev=this.value">
+        <option value="normal" ${it.sev==="normal"?"selected":""}>Bình thường</option>
+        <option value="urgent" ${it.sev==="urgent"?"selected":""}>Khẩn cấp</option>
+      </select>
+      <button type="button" class="btn btn-ghost btn-small" onclick="followUpDraft.splice(${i},1);renderFollowUpList()">Xóa</button>
+    </div>`).join("");
+}
+function statusLabel(s){ return s==="ok"?"Bình thường":s==="attention"?"Cần chú ý":"Cần xử lý ngay"; }
+function renderMyRecentLogs(emp){
+  const list = DATA.reports.filter(r=>r.employeeId===emp.id).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  if(!list.length) return `<div class="empty">Chưa có báo cáo nào.</div>`;
+  return list.map(r=>`<div class="card">
+      <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
+      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtDate(r.date)}</div>
+      ${r.positionsToday && r.positionsToday.length? `<div class="meta" style="margin-bottom:6px;">Vị trí hôm đó: ${r.positionsToday.join(", ")}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C1:</b> ${r.c1_self||"<i>(trống)</i>"}</div>
+      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C1 (bộ phận):</b> ${r.c1_dept}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C2:</b> ${r.c2_self||"<i>(trống)</i>"}</div>
+      ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C2 (bộ phận):</b> ${r.c2_dept}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>C3:</b> ${r.c3_self||"<i>(trống)</i>"}</div>
+      ${r.c3_dept?`<div style="font-size:12.5px;color:var(--indigo);"><b>C3 (bộ phận):</b> ${r.c3_dept}</div>`:""}
+      ${r.readiness?`<div style="margin-top:6px;"><span class="reward-flag" style="background:${r.readiness==='ready'?'var(--green-soft)':r.readiness==='conditional'?'var(--amber-soft)':'var(--rose-soft)'};color:${r.readiness==='ready'?'var(--green)':r.readiness==='conditional'?'var(--amber)':'var(--rose)'};">Sẵn sàng ngày mai: ${r.readiness==='ready'?'Sẵn sàng':r.readiness==='conditional'?'Có điều kiện':'Chưa sẵn sàng'}</span></div>`:""}
+    </div>`).join("");
+}
+async function submitLog(empId){
+  const emp = getEmp(empId);
+  const isManager = scopeFor(emp).length>0;
+  const positionsToday = selectedPositions.map(c=>{ const p=PROCEDURES.find(x=>x.code===c); return p? p.position : null; }).filter(Boolean);
+  const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
+  const report = {
+    id:"r"+Date.now(), employeeId:empId, date:todayStr(), status:logStatus,
+    positionsCodeRaw: selectedPositions.join(","), positionsToday,
+    c1_self: logDraft.c1_self.trim(), c1_dept: isManager? logDraft.c1_dept.trim() : "",
+    c2_self: logDraft.c2_self.trim(), c2_dept: isManager? logDraft.c2_dept.trim() : "",
+    c3_self: logDraft.c3_self.trim(), c3_dept: isManager? logDraft.c3_dept.trim() : "",
+    readiness: isManager? readinessDraft : null,
+    readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
+  };
+  DATA.reports.push(report);
+  followUpDraft.filter(i=>i.title.trim()).forEach(i=>{
+    DATA.tasks.push({id:"t"+Date.now()+Math.random().toString(16).slice(2,6), employeeId:empId, title:i.title, severity:i.sev, source:"reported", status:"new", createdAt:todayStr(),
+      dueDate:null, assignedBy:null, feedback:null, feedbackBy:null,
+      description:`Ghi nhận từ báo cáo 3C ngày ${fmtDate(todayStr())} (mục C3 — việc cần theo dõi).`, steps:[],
+      doer:emp.name, reviewer:null, reportTo:null, detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true});
+  });
+  resetLogDraft();
+  await saveData(); // sao lưu cục bộ, phòng khi mất mạng / chưa cấu hình Sheet
+  let sheetOk = false;
+  if(apiConfigured()){
+    try{
+      await apiPost("submitReport", {
+        date: report.date, code: emp.code, name: emp.name, role: ROLE_LABELS[emp.role],
+        khoi: emp.khoi, branch: emp.branch, positionsToday: report.positionsToday, status: report.status,
+        c1_self: report.c1_self, c1_dept: report.c1_dept, c2_self: report.c2_self, c2_dept: report.c2_dept,
+        c3_self: report.c3_self, c3_dept: report.c3_dept, readiness: report.readiness,
+        readinessSupport: report.readinessSupport, followUps: followUpsSnapshot
+      });
+      sheetOk = true;
+    }catch(err){ console.error("Chưa gửi được lên Google Sheet, đã lưu tạm cục bộ:", err); }
+  }
+  renderAll(); window.scrollTo(0,0);
+  if(!apiConfigured()) alert("Đã lưu báo cáo (tạm thời cục bộ) — chưa cấu hình kết nối Google Sheet nên chưa đồng bộ lên hệ thống chung. Xem hướng dẫn triển khai.");
+  else if(!sheetOk) alert("Đã lưu báo cáo tạm cục bộ, nhưng gửi lên Google Sheet thất bại (có thể do mất mạng). Vui lòng kiểm tra kết nối.");
+}
+
+const SRC_LABEL = {reported:"Tự báo cáo", assigned:"Được giao", planned:"Tự lên kế hoạch"};
+function renderTasksTab(emp){
+  const cols = [["new","Mới / Cần triển khai"],["in_progress","Đang xử lý"],["done","Hoàn thành"]];
+  const mine = DATA.tasks.filter(t=>t.employeeId===emp.id && t.onBoard!==false);
+  return `
+  <div class="panel">
+    <h3>Công việc của tôi</h3>
+    <div class="hint">Bảng theo dõi việc đã được đưa vào danh sách chờ thực hiện trở lên. Muốn ghi việc mới với đầy đủ chi tiết (mô tả, các bước, deadline...), vào tab "Nhật ký công việc".</div>
+    <div class="assign-box">
+      <label style="margin-top:0;">Thêm nhanh việc dự kiến sẽ làm</label>
+      <div class="issue-row"><input type="text" id="plannedTitle" placeholder="Ví dụ: Kiểm tra hạn dùng thuốc tủ trực"><button class="btn btn-primary btn-small" onclick="addPlanned('${emp.id}')">Thêm</button></div>
+    </div>
+    <div class="kanban">
+      ${cols.map(([key,label])=>{
+        const items = mine.filter(t=>t.status===key);
+        return `<div class="kcol"><h4>${label}<span>${items.length}</span></h4>${items.map(t=>taskCard(t,true)).join("") || '<div class="empty">Trống</div>'}</div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+function taskCard(t, ownerCanChangeStatus){
+  return `<div class="card">
+    <div class="title">${t.title}${t.severity==="urgent"?'<span class="pill urgent">Khẩn</span>':''}</div>
+    <div class="meta">${fmtDate(t.createdAt)} · ${daysSince(t.createdAt)} ngày trước ${t.dueDate?(' · Hạn '+fmtDate(t.dueDate)):''}</div>
+    <span class="pill src-${t.source}">${SRC_LABEL[t.source]}${t.assignedBy?(' · '+t.assignedBy):''}</span>
+    ${t.feedback?`<div class="feedback"><b>${t.feedbackBy}:</b> ${t.feedback}</div>`:""}
+    ${ownerCanChangeStatus && t.status!=="done" ? `<select class="form-input statusSel" onchange="setTaskStatus('${t.id}',this.value)">
+        <option value="new" ${t.status==="new"?"selected":""}>Mới / Cần triển khai</option>
+        <option value="in_progress" ${t.status==="in_progress"?"selected":""}>Đang xử lý</option>
+        <option value="done">Đánh dấu hoàn thành</option>
+      </select>` : ""}
+  </div>`;
+}
+async function addPlanned(empId){
+  const input = document.getElementById("plannedTitle"); const title = input.value.trim(); if(!title) return;
+  DATA.tasks.push({id:"t"+Date.now(), employeeId:empId, title, severity:"normal", source:"planned", status:"new", createdAt:todayStr(),
+    dueDate:null, assignedBy:null, feedback:null, feedbackBy:null,
+    description:"", steps:[], doer:getEmp(empId).name, reviewer:null, reportTo:null, detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true});
+  await saveData(); renderAll();
+}
+async function setTaskStatus(id,status){
+  const t = DATA.tasks.find(t=>t.id===id);
+  t.status = status;
+  if(status==="new") t.detailStatus="Đưa vào DS chờ thực hiện";
+  else if(status==="in_progress" && !["Đang lên kế hoạch","Đang chờ duyệt kế hoạch","Đang triển khai","Đang chờ duyệt kết quả","Đang theo dõi kết quả"].includes(t.detailStatus)) t.detailStatus="Đang triển khai";
+  else if(status==="done") t.detailStatus="Đã hoàn thành";
+  await saveData(); renderAll();
+}
+async function setTaskFeedback(id,val,byName){ const t=DATA.tasks.find(t=>t.id===id); t.feedback=val; t.feedbackBy=byName; await saveData(); renderAll(); }
+
+// ---------- NHẬT KÝ CÔNG VIỆC (rich worklog, Trello-style cards) ----------
+const DETAIL_STATUSES = ["Chưa xử lý","Đưa vào DS chờ thực hiện","Đang lên kế hoạch","Đang chờ duyệt kế hoạch","Đang triển khai","Đang chờ duyệt kết quả","Đang theo dõi kết quả","Đã hoàn thành","Đã đánh giá"];
+const KANBAN_STATUS_MAP = {
+  "Đưa vào DS chờ thực hiện":"new",
+  "Đang lên kế hoạch":"in_progress", "Đang chờ duyệt kế hoạch":"in_progress", "Đang triển khai":"in_progress",
+  "Đang chờ duyệt kết quả":"in_progress", "Đang theo dõi kết quả":"in_progress",
+  "Đã hoàn thành":"done", "Đã đánh giá":"done"
+};
+function syncKanbanFromDetail(t){
+  if(t.detailStatus==="Chưa xử lý"){ t.onBoard=false; }
+  else{ t.onBoard=true; t.status = KANBAN_STATUS_MAP[t.detailStatus] || "in_progress"; }
+}
+function renderWorklogTab(emp){
+  const mine = DATA.tasks.filter(t=>t.employeeId===emp.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  return `<div class="panel">
+    <h3>Nhật ký công việc</h3>
+    <div class="hint">Ghi lại mọi công việc phát sinh — tự ghi hoặc được giao. Bấm vào thẻ để xem/chỉnh chi tiết. Khi đổi trạng thái sang "Đưa vào DS chờ thực hiện" trở lên, thẻ sẽ xuất hiện ở tab "Công việc của tôi", cột Mới/Cần triển khai.</div>
+    <div class="assign-box">
+      <label style="margin-top:0;">Ghi việc mới</label>
+      <input type="text" id="wlTitle" placeholder="Tên công việc...">
+      <div class="btn-row"><button class="btn btn-primary btn-small" onclick="addWorklogCard('${emp.id}')">+ Thêm thẻ công việc</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">
+      ${mine.length? mine.map(t=>worklogCardOuter(t,emp)).join("") : '<div class="empty">Chưa có công việc nào được ghi nhận.</div>'}
+    </div>
+  </div>`;
+}
+function worklogCardOuter(t, emp){
+  const open = state.openWorklog===t.id;
+  return `<div class="card" style="cursor:pointer;" onclick="${open?'':`toggleWorklog('${t.id}')`}">
+    <div onclick="event.stopPropagation();">
+      <div class="title" onclick="toggleWorklog('${t.id}')" style="cursor:pointer;">${t.title}${t.severity==="urgent"?'<span class="pill urgent">Khẩn</span>':''}</div>
+      <div class="meta">${SRC_LABEL[t.source]} ${t.dueDate?(' · Hạn '+fmtDate(t.dueDate)):''}</div>
+      <span class="status-tag" style="background:var(--teal-soft);color:var(--teal-deep);margin-top:6px;display:inline-block;">${t.detailStatus||"Chưa xử lý"}</span>
+      ${open? worklogDetail(t, emp) : ""}
+    </div>
+  </div>`;
+}
+function worklogDetail(t, emp){
+  const opts = EMPLOYEES.map(e=>`<option value="${e.name}" ${t.reportTo===e.name?"selected":""}>${e.name}</option>`).join("");
+  const doerOpts = EMPLOYEES.map(e=>`<option value="${e.name}" ${t.doer===e.name?"selected":""}>${e.name}</option>`).join("");
+  const reviewerOpts = EMPLOYEES.map(e=>`<option value="${e.name}" ${t.reviewer===e.name?"selected":""}>${e.name}</option>`).join("");
+  return `<div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;">
+    <label style="margin-top:0;">Mô tả chi tiết</label>
+    <textarea id="wl-desc-${t.id}">${t.description||""}</textarea>
+    <label>Các bước cần thực hiện</label>
+    <div>${(t.steps||[]).map((s,i)=>`<label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:12.5px;margin:4px 0;">
+        <input type="checkbox" style="width:auto;" ${s.done?"checked":""} onchange="toggleStep('${t.id}',${i})"> ${s.text}
+      </label>`).join("") || '<div class="empty" style="padding:4px 0;">Chưa có bước nào.</div>'}</div>
+    <div class="issue-row"><input type="text" id="wl-newstep-${t.id}" placeholder="Thêm bước mới..."><button class="btn btn-ghost btn-small" onclick="addStep('${t.id}')">Thêm bước</button></div>
+    <label>Deadline</label>
+    <input type="date" id="wl-due-${t.id}" value="${t.dueDate||""}">
+    <label>Ai làm</label>
+    <select class="form-input" id="wl-doer-${t.id}">${doerOpts}</select>
+    <label>Ai kiểm tra</label>
+    <select class="form-input" id="wl-reviewer-${t.id}">${reviewerOpts}</select>
+    <label>Báo cáo ai</label>
+    <select class="form-input" id="wl-reportto-${t.id}">${opts}</select>
+    <label>Trạng thái công việc</label>
+    <select class="form-input" id="wl-status-${t.id}">${DETAIL_STATUSES.map(s=>`<option value="${s}" ${t.detailStatus===s?"selected":""}>${s}</option>`).join("")}</select>
+    <label>Ghi chú</label>
+    <textarea id="wl-note-${t.id}">${t.note||""}</textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-small" onclick="saveWorklogDetail('${t.id}')">Lưu thay đổi</button>
+      <button class="btn btn-ghost btn-small" onclick="toggleWorklog(null)">Đóng</button>
+    </div>
+  </div>`;
+}
+function toggleWorklog(id){ state.openWorklog = state.openWorklog===id? null : id; renderAll(); }
+async function addWorklogCard(empId){
+  const input = document.getElementById("wlTitle"); const title = input.value.trim(); if(!title) return;
+  const emp = getEmp(empId);
+  const id = "t"+Date.now();
+  DATA.tasks.push({id, employeeId:empId, title, severity:"normal", source:"planned", status:"new", createdAt:todayStr(),
+    dueDate:null, assignedBy:null, feedback:null, feedbackBy:null,
+    description:"", steps:[], doer:emp.name, reviewer:null, reportTo:null, detailStatus:"Chưa xử lý", note:"", onBoard:false});
+  await saveData(); state.openWorklog=id; renderAll();
+}
+async function toggleStep(id,idx){
+  const t = DATA.tasks.find(x=>x.id===id); t.steps[idx].done = !t.steps[idx].done;
+  await saveData(); renderAll();
+}
+async function addStep(id){
+  const input = document.getElementById("wl-newstep-"+id); const text = input.value.trim(); if(!text) return;
+  const t = DATA.tasks.find(x=>x.id===id); t.steps = t.steps||[]; t.steps.push({text,done:false});
+  await saveData(); renderAll();
+}
+async function saveWorklogDetail(id){
+  const t = DATA.tasks.find(x=>x.id===id);
+  t.description = document.getElementById("wl-desc-"+id).value.trim();
+  t.dueDate = document.getElementById("wl-due-"+id).value || null;
+  t.doer = document.getElementById("wl-doer-"+id).value;
+  t.reviewer = document.getElementById("wl-reviewer-"+id).value;
+  t.reportTo = document.getElementById("wl-reportto-"+id).value;
+  t.detailStatus = document.getElementById("wl-status-"+id).value;
+  t.note = document.getElementById("wl-note-"+id).value.trim();
+  syncKanbanFromDetail(t);
+  await saveData(); renderAll();
+}
+
+// ---------- KHO QUY TRÌNH (procedure repository + position-based access) ----------
+function grantedKhois(emp){ return DATA.grants.filter(g=>g.granteeId===emp.id).map(g=>g.khoi); }
+function accessibleProcedures(emp){
+  if(emp.role==="director") return PROCEDURES;
+  if(emp.role==="functional_head") return PROCEDURES.filter(p=>p.khoi===emp.khoi || grantedKhois(emp).includes(p.khoi));
+  if(emp.role==="som") return PROCEDURES.filter(p=>grantedKhois(emp).includes(p.khoi));
+  if(emp.role==="leader") return PROCEDURES.filter(p=>p.khoi===emp.khoi);
+  const myPositions = DATA.assignments.filter(a=>a.employeeId===emp.id).map(a=>a.position);
+  return PROCEDURES.filter(p=>myPositions.includes(p.position));
+}
+function accessHintFor(emp){
+  if(emp.role==="staff") return "Bạn chỉ tiếp cận quy trình của vị trí được Leader phân công — giao làm bước nào, mở khóa quy trình của bước đó.";
+  if(emp.role==="leader") return `Bạn tiếp cận toàn bộ quy trình khối ${emp.khoi}, theo phân quyền của Trưởng ban.`;
+  if(emp.role==="functional_head") return `Bạn tiếp cận quy trình khối ${emp.khoi} và các khối được Ban điều hành cấp quyền thêm.`;
+  if(emp.role==="som") return "Bạn tiếp cận quy trình theo các khối được Ban điều hành cấp quyền cho vai trò điều phối vận hành.";
+  return "Ban điều hành tiếp cận toàn bộ kho quy trình hệ thống.";
+}
+function renderProceduresTab(emp){
+  const list = accessibleProcedures(emp);
+  let html = `<div class="panel"><h3>Kho quy trình của tôi</h3>
+    <div class="hint">${accessHintFor(emp)}</div>
+    ${list.length? list.map(p=>procedureCard(p,emp)).join("") : '<div class="empty">Chưa có quy trình nào được cấp quyền truy cập.</div>'}
+  </div>`;
+  const scope = scopeFor(emp);
+  html += positionAssignBlock(emp, scope);
+  html += khoiGrantBlock(emp);
+  return html;
+}
+function procedureCard(p, emp){
+  const isStaff = emp.role==="staff";
+  const existing = isStaff ? DATA.trainings.find(t=>t.employeeId===emp.id && t.procedureId===p.id && t.status==="completed") : null;
+  let action;
+  if(!isStaff){ action = `<div class="meta">${p.quiz.length} câu hỏi kiểm tra trong kho — dùng để đào tạo nhân sự vị trí này</div>`; }
+  else if(existing){ action = `<div class="eval-box">Đã hoàn thành bài kiểm tra — điểm <span class="score">${existing.score}/5</span></div>`; }
+  else if(state.openQuiz===p.id){ action = renderQuizForm(p); }
+  else{ action = `<div class="btn-row"><button class="btn btn-ghost btn-small" onclick="toggleQuiz('${p.id}')">Học &amp; làm bài kiểm tra (${p.quiz.length} câu)</button></div>`; }
+  return `<div class="train-card">
+    <div class="top"><div><div class="title">${p.title}</div><div class="sub">Vị trí: ${p.position} · Khối ${p.khoi}</div></div></div>
+    <div style="font-size:13px;margin:8px 0;">${p.summary}</div>
+    ${action}
+  </div>`;
+}
+function renderQuizForm(p){
+  return p.quiz.map((q,qi)=>`
+    <div style="margin:10px 0;">
+      <div style="font-weight:600;font-size:12.5px;margin-bottom:6px;">${qi+1}. ${q.q}</div>
+      ${q.options.map((opt,oi)=>`<label style="display:block;font-size:12.5px;font-weight:400;margin:3px 0;"><input type="radio" name="q-${p.id}-${qi}" value="${oi}" style="width:auto;margin-right:6px;">${opt}</label>`).join("")}
+    </div>`).join("") + `<div class="btn-row"><button class="btn btn-primary btn-small" onclick="submitQuiz('${p.id}')">Nộp bài kiểm tra</button></div>`;
+}
+function toggleQuiz(pid){ state.openQuiz = state.openQuiz===pid?null:pid; renderAll(); }
+async function submitQuiz(pid){
+  const p = PROCEDURES.find(x=>x.id===pid);
+  let correct=0;
+  p.quiz.forEach((q,qi)=>{
+    const sel = document.querySelector(`input[name="q-${pid}-${qi}"]:checked`);
+    if(sel && +sel.value===q.answerIdx) correct++;
+  });
+  const score = Math.round(correct/p.quiz.length*5*10)/10;
+  const emp = getEmp(state.currentEmployeeId);
+  DATA.trainings.push({id:"tr"+Date.now(), employeeId:emp.id, title:p.title, assignedBy:"Kho quy trình", evaluator:"Hệ thống (chấm tự động)", status:"completed", dueDate:todayStr(), score, note:`Chấm tự động từ bài kiểm tra kho quy trình: ${correct}/${p.quiz.length} câu đúng.`, skills:p.position, procedureId:p.id});
+  state.openQuiz=null;
+  await saveData(); renderAll();
+}
+function positionAssignBlock(emp, scope){
+  if(emp.role!=="leader") return "";
+  const myPositions = [...new Set(PROCEDURES.filter(p=>p.khoi===emp.khoi).map(p=>p.position))];
+  if(!scope.length || !myPositions.length) return "";
+  const staffOpts = scope.map(e=>`<option value="${e.id}">${e.name}</option>`).join("");
+  const posOpts = myPositions.map(pos=>`<option value="${pos}">${pos}</option>`).join("");
+  const ids = scope.map(e=>e.id);
+  const list = DATA.assignments.filter(a=>ids.includes(a.employeeId));
+  return `<div class="panel"><h3>Phân quyền vị trí công việc</h3>
+    <div class="hint">Giao nhân viên đảm nhiệm vị trí nào, họ sẽ được mở khóa quy trình và bài kiểm tra của vị trí đó.</div>
+    <div class="assign-box">
+      <label style="margin-top:0;">Nhân viên</label><select class="form-input" id="posEmp">${staffOpts}</select>
+      <label>Vị trí công việc</label><select class="form-input" id="posValue">${posOpts}</select>
+      <div class="btn-row"><button class="btn btn-primary btn-small" onclick="assignPosition('${emp.name}')">Phân quyền</button></div>
+    </div>
+    ${list.length? `<table class="team-table"><tr><th>Nhân viên</th><th>Vị trí</th><th>Người giao</th></tr>
+      ${list.map(a=>`<tr><td>${getEmp(a.employeeId).name}</td><td>${a.position}</td><td>${a.assignedBy}</td></tr>`).join("")}</table>`
+      : `<div class="empty">Chưa phân quyền vị trí nào.</div>`}
+  </div>`;
+}
+async function assignPosition(byName){
+  const employeeId = document.getElementById("posEmp").value;
+  const position = document.getElementById("posValue").value;
+  if(DATA.assignments.find(a=>a.employeeId===employeeId && a.position===position)) return;
+  const khoi = PROCEDURES.find(p=>p.position===position)?.khoi;
+  DATA.assignments.push({id:"a"+Date.now(), employeeId, position, khoi, assignedBy:byName});
+  await saveData(); renderAll();
+}
+function khoiGrantBlock(emp){
+  if(emp.role!=="director") return "";
+  const grantees = EMPLOYEES.filter(e=>e.role==="som"||e.role==="functional_head");
+  const khois = [...new Set(PROCEDURES.map(p=>p.khoi))];
+  const granteeOpts = grantees.map(e=>`<option value="${e.id}">${e.name} (${ROLE_LABELS[e.role]})</option>`).join("");
+  const khoiOpts = khois.map(k=>`<option value="${k}">${k}</option>`).join("");
+  return `<div class="panel"><h3>Cấp quyền truy cập khối chuyên môn</h3>
+    <div class="hint">SOM và Trưởng ban chỉ truy cập quy trình ngoài phạm vi mặc định khi được Ban điều hành cấp quyền.</div>
+    <div class="assign-box">
+      <label style="margin-top:0;">Người được cấp quyền</label><select class="form-input" id="grantEmp">${granteeOpts}</select>
+      <label>Khối chuyên môn</label><select class="form-input" id="grantKhoi">${khoiOpts}</select>
+      <div class="btn-row"><button class="btn btn-primary btn-small" onclick="grantAccess('${emp.name}')">Cấp quyền</button></div>
+    </div>
+    ${DATA.grants.length? `<table class="team-table"><tr><th>Người được cấp</th><th>Khối</th><th>Người cấp</th></tr>
+      ${DATA.grants.map(g=>`<tr><td>${getEmp(g.granteeId).name}</td><td>${g.khoi}</td><td>${g.grantedBy}</td></tr>`).join("")}</table>`
+      : `<div class="empty">Chưa cấp quyền bổ sung nào.</div>`}
+  </div>`;
+}
+async function grantAccess(byName){
+  const granteeId = document.getElementById("grantEmp").value;
+  const khoi = document.getElementById("grantKhoi").value;
+  if(DATA.grants.find(g=>g.granteeId===granteeId && g.khoi===khoi)) return;
+  DATA.grants.push({id:"g"+Date.now(), granteeId, khoi, grantedBy:byName});
+  await saveData(); renderAll();
+}
+
+const TRAIN_STAGES = {assigned:0,in_progress:33,submitted:66,completed:100};
+const TRAIN_LABELS = {assigned:"Được giao",in_progress:"Đang học",submitted:"Chờ đánh giá",completed:"Đã hoàn thành"};
+function renderTrainingTab(emp){
+  const mine = DATA.trainings.filter(t=>t.employeeId===emp.id);
+  return `<div class="panel"><h3>Chương trình đào tạo cá nhân</h3>
+    <div class="hint">Do Trưởng ban chuyên môn giao riêng cho bạn, kèm tiến độ và kết quả đánh giá.</div>
+    ${mine.length? mine.map(t=>trainCard(t)).join("") : '<div class="empty">Chưa có khóa đào tạo nào được giao.</div>'}
+  </div>`;
+}
+function trainCard(t){
+  const pct = TRAIN_STAGES[t.status];
+  return `<div class="train-card">
+    <div class="top"><div><div class="title">${t.title}</div>
+      <div class="sub">Giao bởi ${t.assignedBy} · Đánh giá bởi ${t.evaluator} · Hạn ${fmtDate(t.dueDate)}</div></div>
+      <span class="status-tag status-${t.status}">${TRAIN_LABELS[t.status]}</span></div>
+    <div class="progressbar"><span style="width:${pct}%"></span></div>
+    ${t.status!=="completed" ? trainActions(t) : ""}
+    ${t.status==="completed" ? `<div class="eval-box">Điểm đánh giá: <span class="score">${t.score}/5</span><br>Nhận xét: ${t.note}<br>Kỹ năng đạt được: ${t.skills}</div>` : ""}
+  </div>`;
+}
+function trainActions(t){
+  if(t.status==="assigned") return `<div class="btn-row"><button class="btn btn-ghost btn-small" onclick="updateTrainingStatus('${t.id}','in_progress')">Bắt đầu học</button></div>`;
+  if(t.status==="in_progress") return `<div class="btn-row"><button class="btn btn-ghost btn-small" onclick="updateTrainingStatus('${t.id}','submitted')">Đã hoàn thành nội dung — gửi đánh giá</button></div>`;
+  if(t.status==="submitted") return `<div class="meta">Đang chờ ${t.evaluator} đánh giá</div>`;
+  return "";
+}
+async function updateTrainingStatus(id,status){ DATA.trainings.find(x=>x.id===id).status = status; await saveData(); renderAll(); }
+
+function renderTeamTab(emp){
+  const scope = scopeFor(emp);
+  let html = reportStatusBlock(emp, scope);
+  html += aiSummaryBlock(emp, scope);
+  html += assignTaskBlock(emp, scope);
+  html += teamTasksBlock(emp, scope);
+  html += teamTrainingBlock(emp, scope);
+  return html;
+}
+function reportStatusBlock(emp, scope){
+  if(!scope.length) return "";
+  return `<div class="panel">
+    <h3>Tình trạng báo cáo hôm nay</h3>
+    <div class="hint">Kiểm tra ai trong phạm vi phụ trách đã gửi báo cáo 3C hôm nay, để nhắc người chưa gửi kịp thời.</div>
+    <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-primary btn-small" onclick="checkReportStatus('${emp.id}')">🔄 Kiểm tra tình trạng báo cáo hôm nay</button></div>
+    <div id="reportStatusResult">${state.reportStatusHtml||""}</div>
+  </div>`;
+}
+async function checkReportStatus(empId){
+  const emp = getEmp(empId);
+  const scope = scopeFor(emp);
+  if(!apiConfigured()){
+    state.reportStatusHtml = `<div class="empty" style="margin-top:10px;">Chưa cấu hình kết nối Google Sheet (biến API_URL). Xem hướng dẫn triển khai để bật tính năng này.</div>`;
+    renderAll(); return;
+  }
+  state.reportStatusHtml = `<div class="empty" style="margin-top:10px;">Đang tải dữ liệu từ Google Sheet...</div>`;
+  renderAll();
+  try{
+    const reports = await apiGet("reportsToday");
+    const reportedCodes = new Set((reports||[]).map(r=>r.code));
+    const missing = scope.filter(e=>!reportedCodes.has(e.code));
+    const rows = scope.map(e=>{
+      const done = reportedCodes.has(e.code);
+      return `<tr>
+        <td>${e.name}<br><span class="meta">${e.khoi} · ${e.branch}</span></td>
+        <td>${done? '<span class="status-badge ok">✅ Đã báo cáo</span>' : '<span class="status-badge urgent">❌ Chưa báo cáo</span>'}</td>
+        <td>${!done? `<button type="button" class="btn btn-ghost btn-small" onclick="sendReminderTo('${e.name.replace(/'/g,"\\'")}','${e.email||""}')">Nhắc nhở</button>` : "—"}</td>
+      </tr>`;
+    }).join("");
+    state.reportStatusHtml = `
+      <div class="hint" style="margin:10px 0 0;">${scope.length-missing.length}/${scope.length} người đã báo cáo hôm nay.
+      ${missing.length>0? ` <button type="button" class="btn btn-ghost btn-small" onclick="sendReminderAll('${empId}')">Nhắc nhở tất cả ${missing.length} người chưa báo cáo</button>`:""}</div>
+      <table class="team-table" style="margin-top:8px;"><tr><th>Nhân sự</th><th>Trạng thái</th><th></th></tr>${rows}</table>`;
+  }catch(err){
+    state.reportStatusHtml = `<div class="empty" style="margin-top:10px;">Không kết nối được Google Sheet. Vui lòng thử lại sau.</div>`;
+  }
+  renderAll();
+}
+async function sendReminderTo(name,email){
+  if(!email){ alert("Nhân sự này chưa có email trong hệ thống."); return; }
+  try{ await apiPost("sendReminder", {emails:[email], names:[name]}); alert("Đã gửi nhắc nhở tới "+name+"."); }
+  catch(e){ alert("Gửi nhắc nhở thất bại. Vui lòng thử lại."); }
+}
+async function sendReminderAll(empId){
+  const emp = getEmp(empId);
+  const scope = scopeFor(emp);
+  try{
+    const reports = await apiGet("reportsToday");
+    const reportedCodes = new Set((reports||[]).map(r=>r.code));
+    const missing = scope.filter(e=>!reportedCodes.has(e.code));
+    if(!missing.length){ alert("Mọi người đều đã báo cáo."); return; }
+    await apiPost("sendReminder", {emails:missing.map(e=>e.email||""), names:missing.map(e=>e.name)});
+    alert("Đã gửi nhắc nhở tới "+missing.length+" người.");
+  }catch(e){ alert("Gửi nhắc nhở thất bại. Vui lòng thử lại."); }
+}
+function aiSummaryBlock(emp, scope){
+  const ids = scope.map(e=>e.id);
+  const openTasks = DATA.tasks.filter(t=>ids.includes(t.employeeId) && t.status!=="done");
+  const overdue = openTasks.filter(t=>daysSince(t.createdAt)>=3);
+  const urgent = openTasks.filter(t=>t.severity==="urgent");
+  const pendingEval = DATA.trainings.filter(t=>ids.includes(t.employeeId) && t.status==="submitted");
+  const scopeLabel = emp.role==="som" ? `chi nhánh ${emp.branch}` : emp.role==="functional_head" ? `khối ${emp.khoi}` : emp.role==="director" ? "toàn hệ thống" : `tổ ${emp.khoi} - ${emp.branch}`;
+  return `<div class="ai-note"><b>Tổng hợp nhanh phạm vi phụ trách — ${scopeLabel} (minh họa AI phân tích)</b>
+    ${scope.length} nhân sự thuộc phạm vi. Hiện có ${openTasks.length} việc đang mở, ${overdue.length} việc tồn đọng trên 3 ngày, ${urgent.length} việc mức khẩn cấp. ${pendingEval.length} khóa đào tạo đang chờ đánh giá.</div>`;
+}
+function assignTaskBlock(emp, scope){
+  if(!scope.length) return "";
+  const opts = scope.map(e=>`<option value="${e.id}">${e.name} (${e.khoi} · ${e.branch})</option>`).join("");
+  return `<div class="panel"><h3>Giao việc mới</h3>
+    <div class="assign-box">
+      <label style="margin-top:0;">Giao cho</label>
+      <select class="form-input" id="taskAssignee">${opts}</select>
+      <label>Nội dung công việc</label>
+      <input type="text" id="taskTitleAssign" placeholder="Mô tả công việc cần giao...">
+      <div class="issue-row" style="margin-top:8px;">
+        <select class="form-input sev-select" id="taskSevAssign"><option value="normal">Bình thường</option><option value="urgent">Khẩn cấp</option></select>
+        <input type="date" id="taskDueAssign" value="2026-08-09">
+      </div>
+      <div class="btn-row"><button class="btn btn-primary btn-small" onclick="assignTask('${emp.name}')">Giao việc</button></div>
+    </div>
+  </div>`;
+}
+async function assignTask(byName){
+  const empId = document.getElementById("taskAssignee").value;
+  const title = document.getElementById("taskTitleAssign").value.trim();
+  const sev = document.getElementById("taskSevAssign").value;
+  const due = document.getElementById("taskDueAssign").value;
+  if(!title) return;
+  DATA.tasks.push({id:"t"+Date.now(), employeeId:empId, title, severity:sev, source:"assigned", status:"new", createdAt:todayStr(), dueDate:due, assignedBy:byName, feedback:null, feedbackBy:null,
+    description:"", steps:[], doer:getEmp(empId).name, reviewer:byName, reportTo:byName, detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true});
+  await saveData(); renderAll();
+}
+function teamTasksBlock(emp, scope){
+  const ids = scope.map(e=>e.id);
+  const relevant = DATA.tasks.filter(t=>ids.includes(t.employeeId) && t.status!=="done");
+  return `<div class="panel"><h3>Công việc cần theo dõi trong phạm vi</h3>
+    <table class="team-table">
+      <tr><th>Nhân sự</th><th>Nội dung</th><th>Trạng thái</th><th>Số ngày mở</th><th>Phản hồi</th></tr>
+      ${relevant.map(t=>{
+        const e=getEmp(t.employeeId); const d=daysSince(t.createdAt);
+        return `<tr>
+          <td>${e.name}<br><span class="meta">${e.khoi} · ${e.branch}</span></td>
+          <td>${t.title}${t.severity==="urgent"?'<span class="pill urgent">Khẩn</span>':''}<br><span class="pill src-${t.source}">${SRC_LABEL[t.source]}</span></td>
+          <td><select class="form-input" style="padding:4px 8px;font-size:12px;" onchange="setTaskStatus('${t.id}',this.value)">
+              <option value="new" ${t.status==="new"?"selected":""}>Mới</option>
+              <option value="in_progress" ${t.status==="in_progress"?"selected":""}>Đang xử lý</option>
+              <option value="done" ${t.status==="done"?"selected":""}>Hoàn thành</option>
+            </select></td>
+          <td class="${d>=3?'overdue':''}">${d} ngày</td>
+          <td style="min-width:200px;"><input type="text" class="form-input" style="padding:6px 8px;font-size:12px;" placeholder="Nhập phản hồi..." value="${(t.feedback||"").replace(/"/g,'&quot;')}" onblur="setTaskFeedback('${t.id}',this.value,'${emp.name}')"></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="5" class="empty">Không có việc nào đang mở.</td></tr>`}
+    </table></div>`;
+}
+function teamTrainingBlock(emp, scope){
+  const ids = scope.map(e=>e.id);
+  const opts = scope.map(e=>`<option value="${e.id}">${e.name}</option>`).join("");
+  const pending = DATA.trainings.filter(t=>ids.includes(t.employeeId) && t.status==="submitted");
+  return `<div class="panel"><h3>Quản lý đào tạo trong phạm vi</h3>
+    <div class="assign-box"><label style="margin-top:0;">Giao khóa đào tạo mới</label>
+      <div class="issue-row">
+        <select class="form-input" id="trainAssignee">${opts}</select>
+        <input type="text" id="trainTitle" placeholder="Tên khóa đào tạo">
+        <input type="date" id="trainDue" value="2026-08-31" style="width:150px;">
+      </div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn btn-primary btn-small" onclick="assignTraining('${emp.name}')">Giao đào tạo</button></div>
+    </div>
+    <h3 style="margin-top:22px;">Chờ đánh giá kết quả</h3>
+    ${pending.length? pending.map(t=>`
+      <div class="train-card"><div class="top"><div><div class="title">${t.title}</div><div class="sub">${getEmp(t.employeeId).name}</div></div></div>
+        <label>Điểm đánh giá (1–5)</label><input type="text" class="form-input" id="score-${t.id}" placeholder="5" style="width:80px;">
+        <label>Nhận xét</label><textarea id="note-${t.id}" placeholder="Nhận xét về kết quả..."></textarea>
+        <label>Kỹ năng đạt được</label><input type="text" class="form-input" id="skills-${t.id}" placeholder="Ví dụ: Sơ cấp cứu cơ bản">
+        <div class="btn-row"><button class="btn btn-primary btn-small" onclick="finishEval('${t.id}')">Hoàn tất đánh giá</button></div>
+      </div>`).join("") : `<div class="empty">Không có khóa nào đang chờ đánh giá.</div>`}
+  </div>`;
+}
+async function assignTraining(byName){
+  const empId = document.getElementById("trainAssignee").value;
+  const title = document.getElementById("trainTitle").value.trim();
+  const due = document.getElementById("trainDue").value; if(!title) return;
+  DATA.trainings.push({id:"tr"+Date.now(), employeeId:empId, title, assignedBy:byName, evaluator:byName, status:"assigned", dueDate:due, score:null, note:"", skills:""});
+  await saveData(); renderAll();
+}
+async function finishEval(id){
+  const t = DATA.trainings.find(x=>x.id===id);
+  t.score = document.getElementById("score-"+id).value || "—";
+  t.note = document.getElementById("note-"+id).value;
+  t.skills = document.getElementById("skills-"+id).value;
+  t.status = "completed";
+  await saveData(); renderAll();
+}
+
+function renderEvalTab(emp){
+  const myEvals = DATA.evaluations.filter(e=>e.employeeId===emp.id).sort((a,b)=>b.period.localeCompare(a.period));
+  let html = `<div class="panel"><h3>Đánh giá của tôi</h3>
+    ${myEvals.length? myEvals.map(evalCard).join("") : '<div class="empty">Chưa có kỳ đánh giá nào.</div>'}
+  </div>`;
+  const scope = scopeFor(emp);
+  if(scope.length){
+    const opts = scope.map(e=>`<option value="${e.id}">${e.name}</option>`).join("");
+    html += `<div class="panel"><h3>Đánh giá nhân sự trong phạm vi phụ trách</h3>
+      <div class="assign-box">
+        <label style="margin-top:0;">Nhân sự</label>
+        <select class="form-input" id="evalEmp">${opts}</select>
+        <label>Kỳ đánh giá</label>
+        <input type="text" class="form-input" id="evalPeriod" value="2026-08" placeholder="YYYY-MM">
+        <label>Chấm điểm (thang 10)</label>
+        <div class="score-input-row">
+          <div><span class="meta">Hoàn thành công việc</span><input type="text" class="form-input" id="evalCompletion" placeholder="8"></div>
+          <div><span class="meta">Thái độ, phối hợp</span><input type="text" class="form-input" id="evalAttitude" placeholder="8"></div>
+          <div><span class="meta">Sáng kiến cải tiến</span><input type="text" class="form-input" id="evalInitiative" placeholder="8"></div>
+        </div>
+        <label>Nhận xét</label>
+        <textarea id="evalNote" placeholder="Nhận xét cụ thể về kỳ làm việc..."></textarea>
+        <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="evalReward" style="width:auto;"> Đề xuất khen thưởng</label>
+        <input type="text" class="form-input" id="evalRewardNote" placeholder="Lý do đề xuất khen thưởng (nếu có)">
+        <div class="btn-row"><button class="btn btn-primary btn-small" onclick="submitEval('${emp.name}')">Lưu đánh giá</button></div>
+      </div>
+      ${renderScopeEvalHistory(scope)}
+    </div>`;
+  }
+  return html;
+}
+function evalCard(e){
+  const avg = ((+e.completion + +e.attitude + +e.initiative)/3).toFixed(1);
+  return `<div class="eval-card"><div class="top">
+      <div><span class="period">Kỳ ${e.period}</span> · Đánh giá bởi ${e.evaluator}</div>
+      <div class="eval-score-big">${avg}<span style="font-size:13px;color:var(--slate);">/10</span></div>
+    </div>
+    <div class="eval-crit"><span>Hoàn thành công việc: ${e.completion}</span><span>Thái độ: ${e.attitude}</span><span>Sáng kiến: ${e.initiative}</span></div>
+    <div style="margin-top:8px;font-size:13px;">${e.note}</div>
+    ${e.rewardProposed? `<div style="margin-top:8px;"><span class="reward-flag">★ Đề xuất khen thưởng</span><div style="font-size:12.5px;color:var(--ink-soft);margin-top:4px;">${e.rewardNote}</div></div>`:""}
+  </div>`;
+}
+function renderScopeEvalHistory(scope){
+  const ids = scope.map(e=>e.id);
+  const list = DATA.evaluations.filter(e=>ids.includes(e.employeeId)).sort((a,b)=>b.period.localeCompare(a.period));
+  if(!list.length) return `<div class="empty">Chưa có đánh giá nào trong phạm vi.</div>`;
+  return `<table class="team-table" style="margin-top:8px;">
+    <tr><th>Nhân sự</th><th>Kỳ</th><th>Điểm TB</th><th>Khen thưởng</th></tr>
+    ${list.map(e=>{ const avg=((+e.completion+ +e.attitude+ +e.initiative)/3).toFixed(1); return `<tr>
+      <td>${getEmp(e.employeeId).name}</td><td>${e.period}</td><td>${avg}</td>
+      <td>${e.rewardProposed?'<span class="reward-flag">★ Đề xuất</span>':'—'}</td></tr>`; }).join("")}
+  </table>`;
+}
+async function submitEval(byName){
+  const employeeId = document.getElementById("evalEmp").value;
+  const period = document.getElementById("evalPeriod").value.trim() || "2026-08";
+  const completion = +document.getElementById("evalCompletion").value || 0;
+  const attitude = +document.getElementById("evalAttitude").value || 0;
+  const initiative = +document.getElementById("evalInitiative").value || 0;
+  const note = document.getElementById("evalNote").value.trim();
+  const rewardProposed = document.getElementById("evalReward").checked;
+  const rewardNote = document.getElementById("evalRewardNote").value.trim();
+  DATA.evaluations.push({id:"e"+Date.now(), employeeId, period, completion, attitude, initiative, note, rewardProposed, rewardNote, evaluator:byName});
+  await saveData(); renderAll();
+}
+
+function renderOverviewTab(emp){
+  const branches = [...new Set(EMPLOYEES.map(e=>e.branch))].filter(b=>b!=="Hội sở");
+  const khois = [...new Set(EMPLOYEES.map(e=>e.khoi))].filter(k=>k!=="Ban điều hành" && k!=="Vận hành cơ sở");
+  const byBranch = branches.map(b=>{
+    const ids = EMPLOYEES.filter(e=>e.branch===b).map(e=>e.id);
+    const open = DATA.tasks.filter(t=>ids.includes(t.employeeId) && t.status!=="done").length;
+    const evals = DATA.evaluations.filter(e=>ids.includes(e.employeeId));
+    const avg = evals.length? (evals.reduce((s,e)=>s+(+e.completion+ +e.attitude+ +e.initiative)/3,0)/evals.length).toFixed(1) : "—";
+    return {label:b, open, avg};
+  });
+  const byKhoi = khois.map(k=>{
+    const ids = EMPLOYEES.filter(e=>e.khoi===k).map(e=>e.id);
+    const trainings = DATA.trainings.filter(t=>ids.includes(t.employeeId));
+    const done = trainings.filter(t=>t.status==="completed").length;
+    const rate = trainings.length? Math.round(done/trainings.length*100)+"%" : "—";
+    return {label:k, total:trainings.length, rate};
+  });
+  return `<div class="panel"><h3>Tổng hợp toàn hệ thống (minh họa báo cáo AI tổng hợp)</h3>
+    <div class="hint">Ghép dữ liệu từ mọi chi nhánh và khối chuyên môn — nền tảng cho báo cáo tuần/tháng gửi Ban điều hành.</div>
+    <div class="overview-grid">
+      <div><h3 style="font-size:14px;">Theo chi nhánh (vận hành)</h3>
+        <table class="team-table"><tr><th>Chi nhánh</th><th>Việc đang mở</th><th>Điểm ĐG TB</th></tr>
+        ${byBranch.map(b=>`<tr><td>${b.label}</td><td>${b.open}</td><td>${b.avg}</td></tr>`).join("")}</table></div>
+      <div><h3 style="font-size:14px;">Theo khối chuyên môn (đào tạo)</h3>
+        <table class="team-table"><tr><th>Khối</th><th>Số khóa đào tạo</th><th>Tỉ lệ hoàn thành</th></tr>
+        ${byKhoi.map(k=>`<tr><td>${k.label}</td><td>${k.total}</td><td>${k.rate}</td></tr>`).join("")}</table></div>
+    </div>
+  </div>`;
+}
+
+(async function init(){
+  await loadData();
+  const urlEmp = getUrlEmployeeId();
+  if(urlEmp) state.currentEmployeeId = urlEmp;
+  renderAll();
+})();
+</script>
+</body>
+</html>
