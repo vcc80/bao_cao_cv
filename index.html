@@ -393,7 +393,7 @@ const SEED = {
 };
 
 let DATA = null;
-let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, justSubmitted:false, submitWarning:null, historyHtml:null };
+let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -418,7 +418,7 @@ function scopeFor(emp){
   return [];
 }
 
-function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; resetLogDraft(); renderAll(); }
+function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; resetLogDraft(); renderAll(); }
 function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
@@ -548,9 +548,9 @@ let readinessDraft = "ready";
 let followUpDraft = [];
 let selectedPositionNames = [];
 let selectedPositionOther = "";
-const NF_KEYS = ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note"];
+const NF_KEYS = ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note","cd_c1_new","cd_c1_idea"];
 function emptyLogDraft(){
-  const d = { c3_plan:"", c1_dept:"", c2_dept:"", c3_dept:"", c3_support:"" };
+  const d = { c3_plan:"", cd_c2_plan:"", c3_support:"" };
   NF_KEYS.forEach(k=> d[k] = {none:false, text:""});
   return d;
 }
@@ -568,6 +568,7 @@ function scopeLabelFor(emp){
   if(emp.role==="leader") return `tổ ${emp.khoi} - ${emp.branch}`;
   return "";
 }
+function readinessLabelText(v){ return v==="ready"?"✅ Sẵn sàng":v==="conditional"?"⚠️ Có điều kiện":"❌ Chưa sẵn sàng"; }
 
 /* ===== Modal chọn vị trí làm hôm nay (2 cột, sắp theo ABC) ===== */
 function openPositionModal(){ state.showPositionModal = true; renderAll(); }
@@ -626,9 +627,14 @@ function toggleNone(key){
   if(logDraft[key].none) logDraft[key].text = "";
   renderAll();
 }
+function nfShow(key){
+  const v = logDraft[key];
+  return v.none ? "Không có gì" : (v.text.trim() || "(chưa trả lời)");
+}
 
 function renderLogTab(emp){
   if(state.justSubmitted) return renderSubmitSuccess(emp);
+  if(state.reviewMode) return renderReviewPanel(emp);
   const isManager = scopeFor(emp).length>0;
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
 
@@ -671,19 +677,20 @@ function renderLogTab(emp){
 
   if(isManager){
     html += `<div class="panel">
-      <h3 style="margin-bottom:2px;">Báo cáo công việc bộ phận mình phụ trách</h3>
-      <div class="c-block c-indigo">
-        <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Complete</div><div class="c-question">Bộ phận hoạt động thế nào?</div></div></div>
-        <textarea oninput="logDraft.c1_dept=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c1_dept)}</textarea>
-      </div>
+      <h3 style="margin-bottom:2px;">Báo cáo công việc Bộ phận</h3>
+      <div class="hint" style="margin-top:-2px;">Nối tiếp phần báo cáo cá nhân — dành cho Leader trở lên.</div>
+
       <div class="c-block c-amber">
-        <div class="c-head"><span class="c-num">2</span><div><div class="c-tag">Change</div><div class="c-question">Bộ phận đã chuẩn hóa/cải tiến gì?</div></div></div>
-        <textarea oninput="logDraft.c2_dept=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c2_dept)}</textarea>
+        <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Change</div><div class="c-question">Cải tiến và chuẩn hóa</div></div></div>
+        ${noneField("cd_c1_new","Hôm nay bạn có triển khai áp dụng cải tiến/hay thực hành quy trình mới nào cho bộ phận không? Nếu có kết quả thế nào?")}
+        ${noneField("cd_c1_idea","Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?")}
       </div>
+
       <div class="c-block c-green">
-        <div class="c-head"><span class="c-num">3</span><div><div class="c-tag">Continue</div><div class="c-question">Bộ phận ưu tiên việc gì, cần ai hỗ trợ?</div></div></div>
-        <textarea oninput="logDraft.c3_dept=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_dept)}</textarea>
-        <label>Mức độ sẵn sàng cho ngày mai (nhân sự – MMTB – vật tư – quy trình)</label>
+        <div class="c-head"><span class="c-num">2</span><div><div class="c-tag">Continue</div><div class="c-question">Kế hoạch và khả năng sẵn sàng</div></div></div>
+        <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?</label>
+        <textarea oninput="logDraft.cd_c2_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.cd_c2_plan)}</textarea>
+        <label>Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?</label>
         <div class="readiness-row">
           ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
           ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
@@ -694,11 +701,50 @@ function renderLogTab(emp){
     </div>`;
   }
 
-  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="submitLog('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
+  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="openReview('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
   html += historyBlock(emp);
   if(state.showPositionModal) html += positionModalHtml();
   return html;
 }
+
+function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollTo(0,0); }
+function closeReview(){ state.reviewMode = false; renderAll(); window.scrollTo(0,0); }
+function renderReviewPanel(emp){
+  const isManager = scopeFor(emp).length>0;
+  const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
+  const followUps = followUpDraft.filter(i=>i.title.trim());
+  let html = `<div class="panel">
+    <h3 style="margin-bottom:4px;">Xem lại báo cáo trước khi gửi</h3>
+    <div class="hint">Kiểm tra kỹ nội dung. Đúng rồi thì bấm "Xác nhận & Gửi" — cần sửa thì bấm "Chỉnh sửa".</div>
+
+    <div class="review-row"><div class="review-label">Vị trí làm hôm nay</div><div class="review-value">${allSelected.length? escHtml(allSelected.join(", ")) : "(chưa chọn)"}</div></div>
+
+    <div class="review-row"><div class="review-label">Mục 1 · Hoàn thành công việc đáng kể</div><div class="review-value">${escHtml(nfShow("c1_done"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 1 · Bệnh nhân khen / chưa hài lòng</div><div class="review-value">${escHtml(nfShow("c1_patient"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 1 · MMTB / vật tư</div><div class="review-value">${escHtml(nfShow("c1_mmtb"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 1 · Quy trình</div><div class="review-value">${escHtml(nfShow("c1_process"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 1 · Phối hợp / nhân sự</div><div class="review-value">${escHtml(nfShow("c1_hr"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 2 · Cải tiến / thực hành mới</div><div class="review-value">${escHtml(nfShow("c2_new"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 2 · Ý tưởng cải tiến / chuẩn hóa</div><div class="review-value">${escHtml(nfShow("c2_idea"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 3 · Kế hoạch ngày mai</div><div class="review-value">${escHtml(logDraft.c3_plan.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">Mục 3 · Lưu ý vị trí ngày mai</div><div class="review-value">${escHtml(nfShow("c3_note"))}</div></div>
+    ${followUps.length? `<div class="review-row"><div class="review-label">Việc cần theo dõi</div><div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div></div>`:""}
+  `;
+  if(isManager){
+    html += `<h3 style="margin:20px 0 4px;">Báo cáo công việc Bộ phận</h3>
+    <div class="review-row"><div class="review-label">Mục 1 · Cải tiến/thực hành mới cho bộ phận</div><div class="review-value">${escHtml(nfShow("cd_c1_new"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 1 · Ý tưởng / chuẩn hóa</div><div class="review-value">${escHtml(nfShow("cd_c1_idea"))}</div></div>
+    <div class="review-row"><div class="review-label">Mục 2 · Kế hoạch giao việc ngày mai</div><div class="review-value">${escHtml(logDraft.cd_c2_plan.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">Mục 2 · Mức độ sẵn sàng</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>`;
+  }
+  html += `<div class="btn-row" style="margin-top:18px;">
+      <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
+      <button type="button" class="btn btn-primary" style="flex:1;" onclick="submitLog('${emp.id}')">✓ Xác nhận & Gửi báo cáo</button>
+    </div>
+  </div>`;
+  return html;
+}
+
 function renderSubmitSuccess(emp){
   return `<div class="panel" style="text-align:center;padding:48px 20px;">
     <div style="font-size:44px;margin-bottom:10px;">✅</div>
@@ -746,14 +792,14 @@ async function loadReportHistory(code){
   if(!apiConfigured()){
     const emp = EMPLOYEES.find(e=>e.code===code);
     const local = DATA.reports.filter(r=>emp && r.employeeId===emp.id).sort((a,b)=>b.date.localeCompare(a.date));
-    state.historyHtml = renderHistoryLocal(local);
+    state.historyHtml = renderHistoryLocal(local) + `<div class="hint" style="color:var(--amber);margin-top:10px;">⚠️ Đang hiện dữ liệu lưu tạm trên máy này (chưa kết nối Google Sheet), không phải dữ liệu đầy đủ trên hệ thống.</div>`;
     renderAll(); return;
   }
   try{
     const list = await apiGet("reportsByEmployee", {code});
     state.historyHtml = renderHistoryFromApi(list);
   }catch(err){
-    state.historyHtml = `<div class="empty" style="margin-top:10px;">Không tải được lịch sử báo cáo. Vui lòng thử lại.</div>`;
+    state.historyHtml = `<div class="empty" style="margin-top:10px;">Không tải được lịch sử báo cáo.<br><span class="mono" style="font-size:11px;color:var(--rose);">${escHtml(String(err.message||err))}</span><br><span style="font-size:12px;">Kiểm tra: đã bấm "Gửi báo cáo" ít nhất 1 lần chưa? Apps Script đã Deploy → Manage deployments → New version sau khi cập nhật Code.gs chưa?</span></div>`;
   }
   renderAll();
 }
@@ -772,14 +818,16 @@ function renderHistoryLocal(list){
     </div>`).join("");
 }
 function renderHistoryFromApi(list){
-  if(!list || !list.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào trên hệ thống.</div>`;
+  if(!list || !list.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào trên hệ thống cho mã NV này.</div>`;
   const sorted = list.slice().sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:0));
   return sorted.map(r=>`<div class="card" style="margin-top:10px;">
       <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${r.date}</div>
       ${r.positions? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positions}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;"><b>Cá nhân:</b>\n${r.c1_self||"(trống)"}</div>
-      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;"><b>Bộ phận:</b>\n${r.c1_dept}</div>`:""}
-      <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai:</b> ${r.c3_self||"(trống)"}</div>
+      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;margin-top:6px;"><b>Bộ phận:</b>\n${r.c1_dept}</div>`:""}
+      ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;"><b>Bộ phận (kế hoạch):</b>\n${r.c2_dept}</div>`:""}
+      ${r.readiness?`<div style="font-size:12.5px;margin-top:6px;"><b>Sẵn sàng ngày mai:</b> ${r.readiness}${r.support?" — "+r.support:""}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai (cá nhân):</b> ${r.c3_self||"(trống)"}</div>
     </div>`).join("");
 }
 
@@ -789,30 +837,34 @@ async function submitLog(empId){
   const positionsToday = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
 
-  const nf = k => logDraft[k].none ? "Không có gì" : logDraft[k].text.trim();
   const c1_self = [
-    "- Hoàn thành: " + nf("c1_done"),
-    "- Bệnh nhân: " + nf("c1_patient"),
-    "- MMTB/vật tư: " + nf("c1_mmtb"),
-    "- Quy trình: " + nf("c1_process"),
-    "- Phối hợp/nhân sự: " + nf("c1_hr")
+    "- Hoàn thành: " + nfShow("c1_done"),
+    "- Bệnh nhân: " + nfShow("c1_patient"),
+    "- MMTB/vật tư: " + nfShow("c1_mmtb"),
+    "- Quy trình: " + nfShow("c1_process"),
+    "- Phối hợp/nhân sự: " + nfShow("c1_hr")
   ].join("\n");
   const c2_self = [
-    "- Áp dụng cải tiến/thực hành mới: " + nf("c2_new"),
-    "- Ý tưởng cải tiến/chuẩn hóa: " + nf("c2_idea")
+    "- Áp dụng cải tiến/thực hành mới: " + nfShow("c2_new"),
+    "- Ý tưởng cải tiến/chuẩn hóa: " + nfShow("c2_idea")
   ].join("\n");
   const c3_self = [
     "- Kế hoạch ngày mai: " + (logDraft.c3_plan.trim() || "(chưa ghi)"),
-    "- Lưu ý vị trí ngày mai: " + nf("c3_note")
+    "- Lưu ý vị trí ngày mai: " + nfShow("c3_note")
   ].join("\n");
+
+  const c1_dept = isManager ? [
+    "- Cải tiến/thực hành mới cho bộ phận: " + nfShow("cd_c1_new"),
+    "- Ý tưởng cải tiến/chuẩn hóa: " + nfShow("cd_c1_idea")
+  ].join("\n") : "";
+  const c2_dept = isManager ? ("- Kế hoạch giao việc ngày mai: " + (logDraft.cd_c2_plan.trim() || "(chưa ghi)")) : "";
 
   const report = {
     id:"r"+Date.now(), employeeId:empId, date:todayStr(), status:"",
     positionsToday,
-    c1_self, c1_dept: isManager? logDraft.c1_dept.trim() : "",
-    c2_self, c2_dept: isManager? logDraft.c2_dept.trim() : "",
-    c3_self, c3_dept: isManager? logDraft.c3_dept.trim() : "",
-    c1_done: {...logDraft.c1_done},
+    c1_self, c1_dept,
+    c2_self, c2_dept,
+    c3_self, c3_dept:"",
     readiness: isManager? readinessDraft : null,
     readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
   };
@@ -839,6 +891,7 @@ async function submitLog(empId){
     }catch(err){ console.error("Chưa gửi được lên Google Sheet, đã lưu tạm cục bộ:", err); }
   }
   state.justSubmitted = true;
+  state.reviewMode = false;
   state.submitWarning = !apiConfigured() ? "local-only" : (!sheetOk ? "sheet-failed" : null);
   state.historyHtml = null;
   renderAll(); window.scrollTo(0,0);
