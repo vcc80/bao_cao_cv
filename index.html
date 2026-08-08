@@ -399,7 +399,7 @@ const SEED = {
 };
 
 let DATA = null;
-let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null, lastReportSummary:"" };
+let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null, lastReportSummary:"", reportGate:null, todayReport:null, editingExisting:false, editRowIndex:null, lastWasUpdate:false };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -434,7 +434,7 @@ function scopeFor(emp){
   return [];
 }
 
-function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; resetLogDraft(); renderAll(); }
+function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; resetLogDraft(); renderAll(); }
 function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
@@ -459,9 +459,28 @@ function tabsForRole(role){
   return tabs;
 }
 function setTab(t){ state.activeTab=t; renderAll(); }
-function goHome(){ state.homeView="home"; renderAll(); window.scrollTo(0,0); }
-function goReport(){ state.homeView="report"; renderAll(); window.scrollTo(0,0); }
+function goHome(){ state.homeView="home"; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; renderAll(); window.scrollTo(0,0); }
+function goReport(){
+  state.homeView="report";
+  state.editingExisting=false; state.editRowIndex=null;
+  state.reportGate = apiConfigured() ? "checking" : "clear";
+  renderAll(); window.scrollTo(0,0);
+  if(apiConfigured()) checkTodayReport();
+}
 function goWork(){ state.homeView="work"; if(state.activeTab==="log") state.activeTab="worklog"; renderAll(); window.scrollTo(0,0); }
+async function checkTodayReport(){
+  const emp = getEmp(state.currentEmployeeId);
+  if(!emp) return;
+  try{
+    const r = await apiGet("todayReport", {code: emp.code});
+    if(r && r.rowIndex){ state.todayReport = r; state.reportGate = "exists"; }
+    else { state.reportGate = "clear"; }
+  }catch(err){
+    console.error("Không kiểm tra được báo cáo hôm nay:", err);
+    state.reportGate = "clear"; // lỗi thì không chặn, cho báo cáo bình thường
+  }
+  renderAll();
+}
 
 function renderAll(){
   const emp = getEmp(state.currentEmployeeId);
@@ -476,7 +495,13 @@ function renderAll(){
         <button type="button" class="report-home-link" onclick="goHome()">← Trang chủ</button>
         <span class="report-reporter">${emp.name} — ${emp.khoi} — ${emp.branch}</span>
       </div>`;
-    document.getElementById("tabContent").innerHTML = renderLogTab(emp);
+    if(state.reportGate==="checking"){
+      document.getElementById("tabContent").innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--ink-soft);font-size:13px;">Đang kiểm tra báo cáo hôm nay...</div>`;
+    } else if(state.reportGate==="exists" && !state.editingExisting){
+      document.getElementById("tabContent").innerHTML = renderAlreadyReportedScreen(emp);
+    } else {
+      document.getElementById("tabContent").innerHTML = renderLogTab(emp);
+    }
   } else {
     setTopbarVisible(false);
     renderSidebar(emp);
@@ -676,13 +701,80 @@ function nfShow(key){
   return v.none ? "Không có gì" : (v.text.trim() || "(chưa trả lời)");
 }
 
+function renderAlreadyReportedScreen(emp){
+  const ts = state.todayReport ? fmtTimestamp(state.todayReport.timestamp) : "";
+  return `<div class="panel" style="text-align:center;padding:40px 20px;">
+    <div style="font-size:40px;margin-bottom:10px;">📋</div>
+    <h3 style="margin-bottom:6px;">Bạn đã báo cáo hôm nay rồi</h3>
+    <div class="hint" style="margin:0 0 22px;">${ts? `Đã gửi lúc ${ts}. ` : ""}Bạn có thể xem lại hoặc cập nhật báo cáo.</div>
+    <div class="btn-row" style="justify-content:center;">
+      <button type="button" class="btn btn-ghost" onclick="loadReportHistory('${emp.code}')">🕘 Xem lịch sử báo cáo</button>
+      <button type="button" class="btn btn-primary" onclick="startEditExisting()">✏️ Cập nhật báo cáo</button>
+    </div>
+  </div>
+  ${(state.historyList!==null || state.historyHtml)? `<div class="panel">${renderHistoryResult()}</div>` : ""}`;
+}
+function extractLine(text, prefix){
+  if(!text) return null;
+  const lines = String(text).split("\n");
+  const line = lines.find(l=>l.startsWith(prefix));
+  return line==null ? null : line.slice(prefix.length);
+}
+function applyExtractedToNF(key, text, prefix){
+  const val = extractLine(text, prefix);
+  if(val==null) return;
+  const trimmed = val.trim();
+  if(trimmed==="Không có gì") logDraft[key] = {none:true, text:""};
+  else logDraft[key] = {none:false, text: trimmed};
+}
+function prefillFromReport(r){
+  resetLogDraft();
+  if(r.positions){
+    String(r.positions).split(",").map(s=>s.trim()).filter(Boolean).forEach(n=>{
+      if(DAILY_POSITIONS.includes(n)) selectedPositionNames.push(n);
+      else selectedPositionOther = n;
+    });
+  }
+  applyExtractedToNF("c1_done", r.c1_self, "- Hoàn thành: ");
+  applyExtractedToNF("c1_patient", r.c1_self, "- Bệnh nhân: ");
+  applyExtractedToNF("c1_mmtb", r.c1_self, "- MMTB/vật tư: ");
+  applyExtractedToNF("c1_process", r.c1_self, "- Quy trình: ");
+  applyExtractedToNF("c1_hr", r.c1_self, "- Phối hợp/nhân sự: ");
+  applyExtractedToNF("c2_new", r.c2_self, "- Áp dụng cải tiến/thực hành mới: ");
+  applyExtractedToNF("c2_idea", r.c2_self, "- Ý tưởng cải tiến/chuẩn hóa: ");
+  const planVal = extractLine(r.c3_self, "- Kế hoạch ngày mai: ");
+  logDraft.c3_plan = (planVal && planVal!=="(chưa ghi)") ? planVal : "";
+  applyExtractedToNF("c3_note", r.c3_self, "- Lưu ý vị trí ngày mai: ");
+  if(r.c1_dept){
+    applyExtractedToNF("cd_c1_new", r.c1_dept, "- Cải tiến/thực hành mới cho bộ phận: ");
+    applyExtractedToNF("cd_c1_idea", r.c1_dept, "- Ý tưởng cải tiến/chuẩn hóa: ");
+  }
+  if(r.c2_dept){
+    const planD = extractLine(r.c2_dept, "- Kế hoạch giao việc ngày mai: ");
+    logDraft.cd_c2_plan = (planD && planD!=="(chưa ghi)") ? planD : "";
+  }
+  if(r.readiness) readinessDraft = r.readiness;
+  if(r.support) logDraft.c3_support = r.support;
+}
+function startEditExisting(){
+  if(!state.todayReport) return;
+  prefillFromReport(state.todayReport);
+  state.editingExisting = true;
+  state.editRowIndex = state.todayReport.rowIndex;
+  renderAll(); window.scrollTo(0,0);
+}
+
 function renderLogTab(emp){
   if(state.justSubmitted) return renderSubmitSuccess(emp);
   if(state.reviewMode) return renderReviewPanel(emp);
   const isManager = scopeFor(emp).length>0;
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
 
-  let html = `<div class="panel">
+  let html = "";
+  if(state.editingExisting){
+    html += `<div class="hint" style="background:var(--amber-soft);color:var(--amber);padding:10px 14px;border-radius:10px;margin-bottom:14px;font-weight:600;">✏️ Đang cập nhật báo cáo hôm nay — dữ liệu cũ đã được nạp lại vào các ô bên dưới. Gửi lại sẽ ghi đè lên báo cáo cũ, không tạo dòng mới.</div>`;
+  }
+  html += `<div class="panel">
     <label style="margin-top:0;" id="field-positions">Những vị trí bạn làm hôm nay :</label>
     ${formErrors.has("positions")? `<div class="nf-err-msg">⚠️ Vui lòng chọn ít nhất 1 vị trí</div>` : ""}
     <div class="btn-row" style="margin-top:0;">
@@ -743,7 +835,7 @@ function renderLogTab(emp){
     </div>`;
   }
 
-  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="validateAndReview('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
+  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="validateAndReview('${emp.id}')">${state.editingExisting? "✓ Cập nhật báo cáo" : "✓ Gửi báo cáo hôm nay"}</button></div>`;
   html += historyBlock(emp);
   if(state.showPositionModal) html += positionModalHtml();
   return html;
@@ -808,7 +900,7 @@ function renderReviewPanel(emp){
   }
   html += `<div class="btn-row" style="margin-top:18px;">
       <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
-      <button type="button" class="btn btn-primary" style="flex:1;" onclick="submitLog('${emp.id}')">✓ Xác nhận & Gửi báo cáo</button>
+      <button type="button" class="btn btn-primary" style="flex:1;" onclick="submitLog('${emp.id}')">${state.editingExisting? "✓ Xác nhận & Cập nhật" : "✓ Xác nhận & Gửi báo cáo"}</button>
     </div>
   </div>`;
   return html;
@@ -817,7 +909,7 @@ function renderReviewPanel(emp){
 function renderSubmitSuccess(emp){
   return `<div class="panel" style="text-align:center;padding:48px 20px;">
     <div style="font-size:44px;margin-bottom:10px;">✅</div>
-    <h3 style="margin-bottom:6px;">Bạn đã gửi báo cáo thành công!</h3>
+    <h3 style="margin-bottom:6px;">${state.lastWasUpdate? "Bạn đã cập nhật báo cáo thành công!" : "Bạn đã gửi báo cáo thành công!"}</h3>
     <div class="hint" style="margin:0 0 18px;">Xin cảm ơn ${emp.name}. Báo cáo của bạn đã được ghi nhận.</div>
     ${state.submitWarning==="local-only"? `<div class="hint" style="color:var(--amber);margin-bottom:14px;">⚠️ Hệ thống chưa kết nối Google Sheet nên báo cáo đang lưu tạm trên thiết bị này.</div>`:""}
     ${state.submitWarning==="sheet-failed"? `<div class="hint" style="color:var(--rose);margin-bottom:14px;">⚠️ Gửi lên Google Sheet chưa thành công (có thể do mất mạng). Báo cáo đã lưu tạm, hãy thử lại sau.</div>`:""}
@@ -970,6 +1062,7 @@ function historyCardApi(r){
 async function submitLog(empId){
   const emp = getEmp(empId);
   const isManager = scopeFor(emp).length>0;
+  const isUpdate = state.editingExisting && state.editRowIndex;
   const positionsToday = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
 
@@ -1004,7 +1097,12 @@ async function submitLog(empId){
     readiness: isManager? readinessDraft : null,
     readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
   };
-  DATA.reports.push(report);
+  if(isUpdate){
+    const idx = DATA.reports.findIndex(r=>r.employeeId===empId && r.date===todayStr());
+    if(idx>-1) DATA.reports[idx] = report; else DATA.reports.push(report);
+  } else {
+    DATA.reports.push(report);
+  }
 
   const zaloLines = [
     `BÁO CÁO 3C — ${fmtDate(report.date)}`,
@@ -1033,13 +1131,19 @@ async function submitLog(empId){
   let sheetOk = false;
   if(apiConfigured()){
     try{
-      await apiPost("submitReport", {
+      const payload = {
         date: report.date, code: emp.code, name: emp.name, role: ROLE_LABELS[emp.role],
         khoi: emp.khoi, branch: emp.branch, positionsToday: report.positionsToday, status: report.status,
         c1_self: report.c1_self, c1_dept: report.c1_dept, c2_self: report.c2_self, c2_dept: report.c2_dept,
         c3_self: report.c3_self, c3_dept: report.c3_dept, readiness: report.readiness,
         readinessSupport: report.readinessSupport, followUps: followUpsSnapshot
-      });
+      };
+      if(isUpdate){
+        payload.rowIndex = state.editRowIndex;
+        await apiPost("updateReport", payload);
+      } else {
+        await apiPost("submitReport", payload);
+      }
       sheetOk = true;
     }catch(err){ console.error("Chưa gửi được lên Google Sheet, đã lưu tạm cục bộ:", err); }
   }
@@ -1049,6 +1153,11 @@ async function submitLog(empId){
   state.historyHtml = null;
   state.historyList = null;
   state.historyPage = 1;
+  state.reportGate = null;
+  state.todayReport = null;
+  state.editingExisting = false;
+  state.editRowIndex = null;
+  state.lastWasUpdate = isUpdate;
   renderAll(); window.scrollTo(0,0);
 }
 
