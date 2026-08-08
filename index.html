@@ -201,6 +201,9 @@ select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
 .nf-none-btn{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;min-height:40px;}
 .nf-none-btn.active{background:var(--green-soft);border-color:var(--green);color:var(--green);}
 .nf-item textarea{margin-top:8px;}
+.nf-item.invalid{background:var(--rose-soft);border-radius:10px;padding:10px 12px;margin:0 -12px 4px;}
+.nf-err-msg{color:var(--rose);font-size:11.5px;font-weight:600;margin:2px 0 6px;}
+textarea.field-invalid{border-color:var(--rose);background:var(--rose-soft);}
 .report-infobar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 2px 16px;border-bottom:1px solid var(--line);margin-bottom:14px;width:100%;}
 .report-home-link{background:none;border:none;color:var(--teal-deep);font-weight:600;font-size:13px;cursor:pointer;padding:6px 0;}
 .report-reporter{font-size:12.5px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
@@ -284,7 +287,7 @@ async function loadEmployeesFromSheet(){
     if(Array.isArray(list) && list.length){
       EMPLOYEES = list.map(e=>({
         id: String(e.code).trim(), code: String(e.code).trim(), name: e.name,
-        role: e.role, khoi: e.khoi, branch: e.branch, email: e.email
+        role: e.role, khoi: e.khoi, branch: e.branch, email: e.email, zaloGroupLink: e.zaloGroupLink||""
       })).filter(e=>e.code);
       return true;
     }
@@ -396,7 +399,7 @@ const SEED = {
 };
 
 let DATA = null;
-let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null };
+let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null, lastReportSummary:"" };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -409,7 +412,17 @@ async function saveData(){
 
 function getEmp(id){ return EMPLOYEES.find(e=>e.id===id); }
 function initials(name){ const p=name.split(" "); return (p[p.length-2]?.[0]||"")+(p[p.length-1]?.[0]||""); }
-function todayStr(){ return "2026-08-02"; }
+function todayStr(){
+  const d = new Date();
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function nowTimestampStr(){
+  const d = new Date();
+  const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,"0"), da = String(d.getDate()).padStart(2,"0");
+  const h = String(d.getHours()).padStart(2,"0"), mi = String(d.getMinutes()).padStart(2,"0");
+  return `${y}-${mo}-${da} ${h}:${mi}`;
+}
 function fmtDate(d){ if(!d) return "—"; const dt=new Date(d+"T00:00:00"); return dt.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"}); }
 function daysSince(d){ return Math.floor((new Date(todayStr())-new Date(d))/86400000); }
 
@@ -454,7 +467,7 @@ function renderAll(){
   const emp = getEmp(state.currentEmployeeId);
   renderTopSelect(emp);
   if(!emp){ setTopbarVisible(true); renderLandingGate(); return; }
-  if(state.homeView==="home"){ setTopbarVisible(true); renderHomeScreen(emp); return; }
+  if(state.homeView==="home"){ setTopbarVisible(false); renderHomeScreen(emp); return; }
   if(state.homeView==="report"){
     setTopbarVisible(false);
     document.getElementById("sidebar").innerHTML = "";
@@ -465,7 +478,7 @@ function renderAll(){
       </div>`;
     document.getElementById("tabContent").innerHTML = renderLogTab(emp);
   } else {
-    setTopbarVisible(true);
+    setTopbarVisible(false);
     renderSidebar(emp);
     renderTabsWithBack(emp);
     renderContent(emp);
@@ -559,6 +572,7 @@ const DAILY_POSITIONS = [
 ].sort((a,b)=>a.localeCompare(b,"vi"));
 
 let readinessDraft = "ready";
+let formErrors = new Set();
 let followUpDraft = [];
 let selectedPositionNames = [];
 let selectedPositionOther = "";
@@ -570,7 +584,7 @@ function emptyLogDraft(){
 }
 let logDraft = emptyLogDraft();
 function resetLogDraft(){
-  readinessDraft="ready"; followUpDraft=[];
+  readinessDraft="ready"; followUpDraft=[]; formErrors=new Set();
   selectedPositionNames=[]; selectedPositionOther="";
   logDraft = emptyLogDraft();
 }
@@ -645,8 +659,10 @@ const QUESTIONS = {
 /* ===== Ô câu hỏi kiểu "Không có gì / gõ nội dung" ===== */
 function noneField(key){
   const val = logDraft[key];
-  return `<div class="nf-item">
+  const err = formErrors.has(key);
+  return `<div class="nf-item ${err?'invalid':''}" id="field-${key}">
     <div class="nf-question">${QUESTIONS[key]}</div>
+    ${err? `<div class="nf-err-msg">⚠️ Vui lòng chọn "Không có gì" hoặc nhập nội dung</div>` : ""}
     <div class="btn-row" style="margin-top:0;">
       <button type="button" class="nf-none-btn ${val.none?'active':''}" onclick="toggleNone('${key}')">${val.none? '✓ ':''}Không có gì</button>
     </div>
@@ -694,8 +710,9 @@ function renderLogTab(emp){
     </div>
 
     <div class="c-block c-green">
-      <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?</label>
-      <textarea oninput="logDraft.c3_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_plan)}</textarea>
+      <label style="margin-top:0;" id="field-c3_plan">Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?</label>
+      ${formErrors.has("c3_plan")? `<div class="nf-err-msg">⚠️ Vui lòng nhập nội dung</div>` : ""}
+      <textarea oninput="logDraft.c3_plan=this.value" placeholder="Nhập nội dung..." class="${formErrors.has('c3_plan')?'field-invalid':''}">${escHtml(logDraft.c3_plan)}</textarea>
       ${noneField("c3_note")}
       <label>Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
       <div id="followUpList"></div>
@@ -714,8 +731,9 @@ function renderLogTab(emp){
       </div>
 
       <div class="c-block c-green">
-        <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?</label>
-        <textarea oninput="logDraft.cd_c2_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.cd_c2_plan)}</textarea>
+        <label style="margin-top:0;" id="field-cd_c2_plan">Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?</label>
+        ${formErrors.has("cd_c2_plan")? `<div class="nf-err-msg">⚠️ Vui lòng nhập nội dung</div>` : ""}
+        <textarea oninput="logDraft.cd_c2_plan=this.value" placeholder="Nhập nội dung..." class="${formErrors.has('cd_c2_plan')?'field-invalid':''}">${escHtml(logDraft.cd_c2_plan)}</textarea>
         <label>Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?</label>
         <div class="readiness-row">
           ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
@@ -727,13 +745,38 @@ function renderLogTab(emp){
     </div>`;
   }
 
-  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="openReview('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
+  html += `<div class="panel"><button type="button" class="btn btn-primary" style="width:100%;" onclick="validateAndReview('${emp.id}')">✓ Gửi báo cáo hôm nay</button></div>`;
   html += historyBlock(emp);
   if(state.showPositionModal) html += positionModalHtml();
   return html;
 }
 
 function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollTo(0,0); }
+function validateAndReview(empId){
+  const emp = getEmp(empId);
+  const isManager = scopeFor(emp).length>0;
+  formErrors = new Set();
+  ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note"].forEach(k=>{
+    if(!(logDraft[k].none || logDraft[k].text.trim())) formErrors.add(k);
+  });
+  if(!logDraft.c3_plan.trim()) formErrors.add("c3_plan");
+  if(isManager){
+    ["cd_c1_new","cd_c1_idea"].forEach(k=>{
+      if(!(logDraft[k].none || logDraft[k].text.trim())) formErrors.add(k);
+    });
+    if(!logDraft.cd_c2_plan.trim()) formErrors.add("cd_c2_plan");
+  }
+  if(formErrors.size > 0){
+    renderAll();
+    setTimeout(()=>{
+      const first = [...formErrors][0];
+      const el = document.getElementById("field-"+first);
+      if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
+    }, 60);
+    return;
+  }
+  openReview(empId);
+}
 function closeReview(){ state.reviewMode = false; renderAll(); window.scrollTo(0,0); }
 function renderReviewPanel(emp){
   const isManager = scopeFor(emp).length>0;
@@ -779,11 +822,43 @@ function renderSubmitSuccess(emp){
     ${state.submitWarning==="local-only"? `<div class="hint" style="color:var(--amber);margin-bottom:14px;">⚠️ Hệ thống chưa kết nối Google Sheet nên báo cáo đang lưu tạm trên thiết bị này.</div>`:""}
     ${state.submitWarning==="sheet-failed"? `<div class="hint" style="color:var(--rose);margin-bottom:14px;">⚠️ Gửi lên Google Sheet chưa thành công (có thể do mất mạng). Báo cáo đã lưu tạm, hãy thử lại sau.</div>`:""}
     <div class="btn-row" style="justify-content:center;">
+      <button type="button" class="btn btn-ghost" style="background:#0068FF;color:#fff;" onclick="copyToZalo('${emp.code}')">💬 Copy báo cáo sang nhóm Zalo</button>
+    </div>
+    <div class="btn-row" style="justify-content:center;">
       <button type="button" class="btn btn-primary" onclick="state.justSubmitted=false; renderAll();">✏️ Gửi báo cáo khác</button>
       <button type="button" class="btn btn-ghost" onclick="goHome()">← Trang chủ</button>
     </div>
   </div>
   ${historyBlock(emp)}`;
+}
+function copyTextToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve,reject)=>{
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position="fixed"; ta.style.left="-9999px";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error("execCommand thất bại"));
+    }catch(e){ reject(e); }
+  });
+}
+function copyToZalo(code){
+  const emp = EMPLOYEES.find(e=>e.code===code);
+  const text = state.lastReportSummary || "";
+  copyTextToClipboard(text).then(()=>{
+    if(emp && emp.zaloGroupLink){
+      window.open(emp.zaloGroupLink, "_blank");
+      alert("Đã copy nội dung báo cáo. Nhóm Zalo đang mở ở tab mới — dán (paste) nội dung vào để gửi.");
+    }else{
+      alert("Đã copy nội dung báo cáo. (Chưa có link nhóm Zalo cho nhân viên này trong Google Sheet — cột LinkNhomZalo.) Hãy tự mở Zalo và dán nội dung.");
+    }
+  }).catch(()=>{
+    alert("Không copy được tự động trên trình duyệt này. Vui lòng vào tab 'Xem lịch sử báo cáo' để tự copy nội dung thủ công.");
+  });
 }
 function readinessOpt(val,label,desc){
   return `<div class="readiness-opt ${val} ${readinessDraft===val?'active':''}" onclick="setReadiness('${val}')"><b>${label}</b>${desc}</div>`;
@@ -846,11 +921,18 @@ async function loadReportHistory(code){
   renderAll();
 }
 function showMoreHistory(){ state.historyPage++; renderAll(); }
+function fmtTimestamp(ts){
+  if(!ts) return "—";
+  const m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if(m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+  return fmtDateSafe(ts);
+}
+function sortKeyTs(r){ return r.timestamp || r.date || ""; }
 function renderHistoryResult(){
   if(state.historyHtml) return state.historyHtml;
   if(!state.historyList) return "";
   if(!state.historyList.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào.</div>`;
-  const sorted = state.historyList.slice().sort((a,b)=> sortKeyDate(b.date).localeCompare(sortKeyDate(a.date)));
+  const sorted = state.historyList.slice().sort((a,b)=> sortKeyTs(b).localeCompare(sortKeyTs(a)));
   const limit = state.historyPage * HISTORY_PAGE_SIZE;
   const shown = sorted.slice(0, limit);
   const cards = shown.map(r=> state.historySource==="api"? historyCardApi(r) : historyCardLocal(r)).join("");
@@ -867,7 +949,7 @@ function fieldSummary(v){
 }
 function historyCardLocal(r){
   return `<div class="card" style="margin-top:10px;">
-      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtDateSafe(r.date)}</div>
+      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtTimestamp(r.timestamp)}</div>
       ${r.positionsToday && r.positionsToday.length? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positionsToday.join(", ")}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;"><b>Hoàn thành:</b> ${fieldSummary(r.c1_done)}</div>
       <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai:</b> ${r.c3_plan||"<i>(trống)</i>"}</div>
@@ -875,7 +957,7 @@ function historyCardLocal(r){
 }
 function historyCardApi(r){
   return `<div class="card" style="margin-top:10px;">
-      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtDateSafe(r.date)}</div>
+      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtTimestamp(r.timestamp)}</div>
       ${r.positions? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positions}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;"><b>Cá nhân:</b>\n${r.c1_self||"(trống)"}</div>
       ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;margin-top:6px;"><b>Bộ phận:</b>\n${r.c1_dept}</div>`:""}
@@ -914,7 +996,7 @@ async function submitLog(empId){
   const c2_dept = isManager ? ("- Kế hoạch giao việc ngày mai: " + (logDraft.cd_c2_plan.trim() || "(chưa ghi)")) : "";
 
   const report = {
-    id:"r"+Date.now(), employeeId:empId, date:todayStr(), status:"",
+    id:"r"+Date.now(), employeeId:empId, date:todayStr(), timestamp: nowTimestampStr(), status:"",
     positionsToday,
     c1_self, c1_dept,
     c2_self, c2_dept,
@@ -923,6 +1005,23 @@ async function submitLog(empId){
     readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
   };
   DATA.reports.push(report);
+
+  const zaloLines = [
+    `BÁO CÁO 3C — ${fmtDate(report.date)}`,
+    `Họ tên: ${emp.name}`,
+    `Vai trò: ${ROLE_LABELS[emp.role]}`,
+    `Khối: ${emp.khoi}`,
+    `Chi nhánh: ${emp.branch}`
+  ];
+  if(positionsToday.length) zaloLines.push(`Vị trí làm hôm nay: ${positionsToday.join(", ")}`);
+  zaloLines.push("", "— BÁO CÁO CÁ NHÂN —", c1_self, c2_self, c3_self);
+  if(isManager){
+    zaloLines.push("", "— BÁO CÁO BỘ PHẬN —", c1_dept, c2_dept);
+    zaloLines.push("Mức sẵn sàng: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
+  }
+  if(followUpsSnapshot.length) zaloLines.push("", "Việc cần theo dõi: " + followUpsSnapshot.join("; "));
+  state.lastReportSummary = zaloLines.join("\n");
+
   followUpDraft.filter(i=>i.title.trim()).forEach(i=>{
     DATA.tasks.push({id:"t"+Date.now()+Math.random().toString(16).slice(2,6), employeeId:empId, title:i.title, severity:i.sev, source:"reported", status:"new", createdAt:todayStr(),
       dueDate:null, assignedBy:null, feedback:null, feedbackBy:null,
