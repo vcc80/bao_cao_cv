@@ -681,7 +681,6 @@ function renderLogTab(emp){
     <h3 style="margin-bottom:2px;">Báo cáo công việc của cá nhân</h3>
 
     <div class="c-block c-indigo">
-      <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Complete</div><div class="c-question">Tình hình công việc hôm nay của bạn thế nào?</div></div></div>
       ${noneField("c1_done")}
       ${noneField("c1_patient")}
       ${noneField("c1_mmtb")}
@@ -690,13 +689,11 @@ function renderLogTab(emp){
     </div>
 
     <div class="c-block c-amber">
-      <div class="c-head"><span class="c-num">2</span><div><div class="c-tag">Change</div><div class="c-question">Cải tiến và chuẩn hóa</div></div></div>
       ${noneField("c2_new")}
       ${noneField("c2_idea")}
     </div>
 
     <div class="c-block c-green">
-      <div class="c-head"><span class="c-num">3</span><div><div class="c-tag">Continue</div><div class="c-question">Kế hoạch và khả năng sẵn sàng</div></div></div>
       <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?</label>
       <textarea oninput="logDraft.c3_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_plan)}</textarea>
       ${noneField("c3_note")}
@@ -712,13 +709,11 @@ function renderLogTab(emp){
       <div class="hint" style="margin-top:-2px;">Nối tiếp phần báo cáo cá nhân — dành cho Leader trở lên.</div>
 
       <div class="c-block c-amber">
-        <div class="c-head"><span class="c-num">1</span><div><div class="c-tag">Change</div><div class="c-question">Cải tiến và chuẩn hóa</div></div></div>
         ${noneField("cd_c1_new")}
         ${noneField("cd_c1_idea")}
       </div>
 
       <div class="c-block c-green">
-        <div class="c-head"><span class="c-num">2</span><div><div class="c-tag">Continue</div><div class="c-question">Kế hoạch và khả năng sẵn sàng</div></div></div>
         <label style="margin-top:0;">Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?</label>
         <textarea oninput="logDraft.cd_c2_plan=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.cd_c2_plan)}</textarea>
         <label>Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?</label>
@@ -852,12 +847,12 @@ function renderHistoryFromApi(list){
   if(!list || !list.length) return `<div class="empty" style="margin-top:10px;">Chưa có báo cáo nào trên hệ thống cho mã NV này.</div>`;
   const sorted = list.slice().sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:0));
   return sorted.map(r=>`<div class="card" style="margin-top:10px;">
-      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${r.date}</div>
+      <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtDate(r.date)}</div>
       ${r.positions? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positions}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;"><b>Cá nhân:</b>\n${r.c1_self||"(trống)"}</div>
       ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;margin-top:6px;"><b>Bộ phận:</b>\n${r.c1_dept}</div>`:""}
       ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;"><b>Bộ phận (kế hoạch):</b>\n${r.c2_dept}</div>`:""}
-      ${r.readiness?`<div style="font-size:12.5px;margin-top:6px;"><b>Sẵn sàng ngày mai:</b> ${r.readiness}${r.support?" — "+r.support:""}</div>`:""}
+      ${r.readiness?`<div style="font-size:12.5px;margin-top:6px;"><b>Sẵn sàng ngày mai:</b> ${readinessLabelText(r.readiness)}${r.support?" — "+r.support:""}</div>`:""}
       <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai (cá nhân):</b> ${r.c3_self||"(trống)"}</div>
     </div>`).join("");
 }
