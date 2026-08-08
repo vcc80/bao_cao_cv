@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Quản trị công việc, đào tạo &amp; đánh giá</title>
+
+<!-- ===== PWA: cho phép "Thêm vào Màn hình chính" trên iOS/Android ===== -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F4A40">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Báo cáo Dân Y">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -34,6 +44,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-ser
 .layout{display:flex;gap:22px;max-width:1220px;margin:22px auto;padding:0 20px 60px;align-items:flex-start;}
 @media (max-width:880px){.layout{flex-direction:column;}}
 .sidebar{width:270px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;}
+.sidebar:empty{display:none;width:0;}
 @media (max-width:880px){.sidebar{width:100%;}}
 
 .badge-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;position:relative;overflow:hidden;}
@@ -189,7 +200,11 @@ select.statusSel{margin-top:8px;font-size:11.5px;padding:4px 6px;}
 .modal-list.grid2 .modal-item{padding:9px 0;font-size:13px;}
 .modal-other{grid-column:1 / -1;}
 
-.home-panel{max-width:420px;margin:40px auto;padding:36px 28px;text-align:center;}
+.home-panel-wrap{display:flex;align-items:center;justify-content:center;min-height:72vh;}
+.home-panel{max-width:420px;width:100%;margin:0 auto;padding:36px 28px;text-align:center;}
+.exit-footer{text-align:center;margin:28px 0 8px;}
+.exit-footer button{background:none;border:none;color:var(--slate);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 14px;}
+.exit-footer button:hover{color:var(--rose);}
 .home-btn-col{display:flex;flex-direction:column;gap:12px;}
 .home-btn{border:none;border-radius:12px;padding:20px;font-family:'Inter',sans-serif;font-weight:700;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;min-height:64px;}
 .home-btn-primary{background:var(--teal);color:#fff;}
@@ -498,15 +513,16 @@ function renderAll(){
     if(state.reportGate==="checking"){
       document.getElementById("tabContent").innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--ink-soft);font-size:13px;">Đang kiểm tra báo cáo hôm nay...</div>`;
     } else if(state.reportGate==="exists" && !state.editingExisting){
-      document.getElementById("tabContent").innerHTML = renderAlreadyReportedScreen(emp);
+      document.getElementById("tabContent").innerHTML = renderAlreadyReportedScreen(emp) + exitFooterHtml();
     } else {
-      document.getElementById("tabContent").innerHTML = renderLogTab(emp);
+      document.getElementById("tabContent").innerHTML = renderLogTab(emp) + exitFooterHtml();
     }
   } else {
     setTopbarVisible(false);
     renderSidebar(emp);
     renderTabsWithBack(emp);
     renderContent(emp);
+    document.getElementById("tabContent").insertAdjacentHTML("beforeend", exitFooterHtml());
   }
 }
 function setTopbarVisible(visible){
@@ -517,16 +533,28 @@ function renderHomeScreen(emp){
   document.getElementById("sidebar").innerHTML = "";
   document.getElementById("tabs").innerHTML = "";
   document.getElementById("tabContent").innerHTML = `
-    <div class="panel home-panel">
-      <div class="badge-avatar" style="background:${DEPT_COLORS[emp.khoi]||'#2F6F62'};margin:0 auto 14px;">${initials(emp.name)}</div>
-      <h2 style="text-align:center;margin:0 0 4px;">Chào bạn, ${emp.name}</h2>
-      <div style="text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:6px;">${ROLE_LABELS[emp.role]}</div>
-      <div class="tagrow" style="justify-content:center;margin-bottom:26px;"><span class="tag">${emp.khoi}</span><span class="tag branch">${emp.branch}</span></div>
-      <div class="home-btn-col">
-        <button type="button" class="home-btn home-btn-primary" onclick="goReport()">📝 <span>BÁO CÁO NGÀY</span></button>
-        <button type="button" class="home-btn home-btn-secondary" onclick="goWork()">🗂️ <span>CÔNG VIỆC</span></button>
+    <div class="home-panel-wrap">
+      <div class="panel home-panel">
+        <img src="icon-512.png" alt="Logo" style="width:76px;height:76px;object-fit:contain;margin:0 auto 16px;display:block;" onerror="this.style.display='none'">
+        <h2 style="text-align:center;margin:0 0 4px;">Chào bạn, ${emp.name}</h2>
+        <div style="text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:6px;">${ROLE_LABELS[emp.role]}</div>
+        <div class="tagrow" style="justify-content:center;margin-bottom:26px;"><span class="tag">${emp.khoi}</span><span class="tag branch">${emp.branch}</span></div>
+        <div class="home-btn-col">
+          <button type="button" class="home-btn home-btn-primary" onclick="goReport()">📝 <span>BÁO CÁO NGÀY</span></button>
+          <button type="button" class="home-btn home-btn-secondary" onclick="goWork()">🗂️ <span>CÔNG VIỆC</span></button>
+        </div>
+        ${exitFooterHtml()}
       </div>
     </div>`;
+}
+function exitFooterHtml(){
+  return `<div class="exit-footer"><button type="button" onclick="doLogout()">Thoát</button></div>`;
+}
+function doLogout(){
+  if(!confirm("Thoát khỏi hồ sơ hiện tại?")) return;
+  state.currentEmployeeId = null;
+  state.homeView = "home";
+  renderAll();
 }
 function renderLandingGate(){
   document.getElementById("sidebar").innerHTML = "";
@@ -1743,6 +1771,12 @@ function renderOverviewTab(emp){
   }
   renderAll();
 })();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
