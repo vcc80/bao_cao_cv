@@ -683,9 +683,10 @@ function renderLogTab(emp){
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
 
   let html = `<div class="panel">
-    <label style="margin-top:0;">Những vị trí bạn làm hôm nay :</label>
+    <label style="margin-top:0;" id="field-positions">Những vị trí bạn làm hôm nay :</label>
+    ${formErrors.has("positions")? `<div class="nf-err-msg">⚠️ Vui lòng chọn ít nhất 1 vị trí</div>` : ""}
     <div class="btn-row" style="margin-top:0;">
-      <button type="button" class="btn btn-ghost" onclick="openPositionModal()">📋 Chọn vị trí làm${allSelected.length? " ("+allSelected.length+" đã chọn)":""}</button>
+      <button type="button" class="btn ${formErrors.has('positions')?'btn-ghost':'btn-ghost'}" style="${formErrors.has('positions')?'border:1.5px solid var(--rose);background:var(--rose-soft);color:var(--rose);':''}" onclick="openPositionModal()">📋 Chọn vị trí làm${allSelected.length? " ("+allSelected.length+" đã chọn)":""}</button>
     </div>
     <div class="chip-row">${allSelected.length? allSelected.map(n=>`<span class="reminder-pill" style="background:var(--teal-soft);color:var(--teal-deep);">${n}</span>`).join("") : '<span class="hint" style="margin:8px 0 0;">Chưa chọn vị trí nào</span>'}</div>
   </div>`;
@@ -752,7 +753,9 @@ function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollT
 function validateAndReview(empId){
   const emp = getEmp(empId);
   const isManager = scopeFor(emp).length>0;
+  const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   formErrors = new Set();
+  if(!allSelected.length) formErrors.add("positions");
   ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note"].forEach(k=>{
     if(!(logDraft[k].none || logDraft[k].text.trim())) formErrors.add(k);
   });
@@ -1604,12 +1607,24 @@ function renderOverviewTab(emp){
 }
 
 (async function init(){
-  await loadData();
-  const urlEmp = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
-  if(urlEmp) state.currentEmployeeId = urlEmp;
-  else state.currentEmployeeId = null; // chưa xác định — sẽ hiện màn hình nhập mã NV
-  renderAll();
+  const maParam = new URLSearchParams(window.location.search).get("ma");
+  const urlEmpFallback = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
+  if(urlEmpFallback){
+    state.currentEmployeeId = urlEmpFallback;
+    renderAll();
+  } else if(maParam){
+    // Có mã trên link nhưng chưa xác định được ngay (đang chờ tải danh sách thật) —
+    // hiện màn hình chờ ngắn gọn thay vì trang trống, cảm giác vào thẳng cho nhanh.
+    setTopbarVisible(false);
+    document.getElementById("sidebar").innerHTML = "";
+    document.getElementById("tabs").innerHTML = "";
+    document.getElementById("tabContent").innerHTML = `<div style="text-align:center;padding:70px 20px;color:var(--ink-soft);font-size:13px;">Đang tải...</div>`;
+  } else {
+    state.currentEmployeeId = null;
+    renderAll();
+  }
 
+  await loadData();
   const loaded = await loadEmployeesFromSheet();
   if(loaded){
     // Sau khi có danh sách THẬT từ Sheet, dò lại link cá nhân (?ma=) theo danh sách thật
