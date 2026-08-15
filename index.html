@@ -560,16 +560,15 @@ function exitFooterHtml(){
   return `<div class="exit-footer"><button type="button" onclick="doLogout()">Thoát</button></div>`;
 }
 function doLogout(){
-  if(!confirm("Thoát khỏi hồ sơ hiện tại?")) return;
-  clearLastCode();
-  state.currentEmployeeId = null;
+  // Web/PWA không có quyền tự đóng tab hay thu nhỏ về màn hình chính của điện
+  // thoại (trình duyệt luôn chặn vì lý do bảo mật). Cách gần nhất có thể làm:
+  // thử đóng tab nếu trình duyệt cho phép, nếu không thì thoát khỏi trang đang
+  // làm việc, quay về màn hình chính CỦA APP — không xoá mã đã đăng nhập, để
+  // lần sau mở lại vẫn tự vào đúng người, không phải gõ lại mã.
+  try{ window.close(); }catch(e){}
   state.homeView = "home";
-  try{
-    const url = new URL(window.location.href);
-    url.searchParams.delete("ma");
-    window.history.replaceState({}, "", url.toString());
-  }catch(e){}
   renderAll();
+  window.scrollTo(0,0);
 }
 function renderLandingGate(){
   document.getElementById("sidebar").innerHTML = "";
@@ -637,14 +636,34 @@ const DAILY_POSITIONS = [
 ].sort((a,b)=>a.localeCompare(b,"vi"));
 
 let readinessDraft = "ready";
-let formErrors = new Set();
 let followUpDraft = [];
 let selectedPositionNames = [];
 let selectedPositionOther = "";
-const NF_KEYS = ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note","cd_c1_new","cd_c1_idea"];
+let formErrors = new Set();
+
+/* ===== Câu hỏi báo cáo 3C — dùng chung giữa form nhập và trang xem lại ===== */
+// Câu dạng "plain": luôn phải gõ nội dung, không có nút "Không có gì".
+// Câu dạng "nf": có nút "Không có gì" riêng theo từng câu (skip label may khác nhau cho tự nhiên).
+const QUESTIONS = {
+  q1_done: { type:"plain", q:"Hôm nay bạn tự hào nhất về việc gì mình đã làm được?" },
+  q2_patient: { type:"nf", q:"Bệnh nhân hôm nay có khen, phàn nàn hay tình huống gì đáng chú ý không?", skip:"Không có vấn đề phát sinh" },
+  q3_resource: { type:"nf", q:"Máy móc – vật tư – quy trình – nhân sự hôm nay có vấn đề gì cần xử lý tiếp không?", skip:"Không có vấn đề phát sinh" },
+  q4_improve: { type:"nf", q:"Hôm nay bạn có thử cách làm mới nào không? Kết quả thế nào?", skip:"Chưa thử cách làm mới nào" },
+  q5_idea: { type:"nf", q:"Bạn có đề xuất gì để ngày mai làm tốt hơn không?", skip:"Chưa có đề xuất gì thêm" },
+  q6_plan: { type:"plain", q:"Ngày mai 1–3 việc quan trọng nhất bạn phải hoàn thành là gì?" },
+  d1_result: { type:"plain", q:"Hôm nay bạn đã triển khai việc gì và bộ phận đã hoàn thành được kết quả đáng kể nào?" },
+  d2_standardize: { type:"plain", q:"Hôm nay bộ phận đã triển khai chuẩn hóa/cải tiến điều gì? Kết quả thực tế thế nào?" },
+  d3_propose: { type:"plain", q:"Bạn phát hiện điều gì cần cải tiến để bộ phận hoặc phòng khám tốt hơn? Đề xuất cách làm?" },
+  d4_tomorrow: { type:"plain", q:"Ngày mai bạn sẽ triển khai, chấn chỉnh, kiểm tra hoặc đào tạo nhân viên việc gì quan trọng nhất?" }
+};
+const NF_KEYS = ["q2_patient","q3_resource","q4_improve","q5_idea"];
+const PLAIN_KEYS_PERSONAL = ["q1_done","q6_plan"];
+const PLAIN_KEYS_DEPT = ["d1_result","d2_standardize","d3_propose","d4_tomorrow"];
+
 function emptyLogDraft(){
-  const d = { c3_plan:"", cd_c2_plan:"", c3_support:"" };
+  const d = { c3_support:"" };
   NF_KEYS.forEach(k=> d[k] = {none:false, text:""});
+  [...PLAIN_KEYS_PERSONAL, ...PLAIN_KEYS_DEPT].forEach(k=> d[k] = "");
   return d;
 }
 let logDraft = emptyLogDraft();
@@ -704,32 +723,16 @@ function positionModalHtml(){
   </div>`;
 }
 
-/* ===== Câu hỏi dùng chung giữa form nhập và trang xem lại (tránh lệch nội dung) ===== */
-const QUESTIONS = {
-  c1_done: "Hôm nay Bạn đã hoàn thành được công việc gì đáng kể?",
-  c1_patient: "Bạn có ghi nhận bệnh nhân khen hay không hài lòng vấn đề gì không? Nếu có cụ thể là gì?",
-  c1_mmtb: "MMTB, vật tư có vấn đề gì không? Bạn đề xuất gì không?",
-  c1_process: "Quy trình có vấn đề gì không? Bạn có đề xuất gì không?",
-  c1_hr: "Vấn đề phối hợp hay nhân sự có vấn đề gì không?",
-  c2_new: "Hôm nay bạn có áp dụng cải tiến/hay thực hành quy trình mới nào không? Nếu có bạn thấy thế nào?",
-  c2_idea: "Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?",
-  c3_plan: "Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?",
-  c3_note: "Ngày mai làm ở những vị trí của bạn hôm nay có cần lưu ý việc gì không? (Về MMTB - Quy trình - Vật tư - Bệnh nhân)",
-  cd_c1_new: "Hôm nay bạn có triển khai áp dụng cải tiến/hay thực hành quy trình mới nào cho bộ phận không? Nếu có kết quả thế nào?",
-  cd_c1_idea: "Bạn có ý tưởng cải tiến hay có vấn đề gì cần chuẩn hóa quy trình hóa lại không?",
-  cd_c2_plan: "Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?",
-  readiness: "Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?"
-};
-
 /* ===== Ô câu hỏi kiểu "Không có gì / gõ nội dung" ===== */
 function noneField(key){
   const val = logDraft[key];
+  const meta = QUESTIONS[key];
   const err = formErrors.has(key);
   return `<div class="nf-item ${err?'invalid':''}" id="field-${key}">
-    <div class="nf-question">${QUESTIONS[key]}</div>
-    ${err? `<div class="nf-err-msg">⚠️ Vui lòng chọn "Không có gì" hoặc nhập nội dung</div>` : ""}
+    <div class="nf-question">${meta.q}</div>
+    ${err? `<div class="nf-err-msg">⚠️ Vui lòng chọn "${meta.skip}" hoặc nhập nội dung</div>` : ""}
     <div class="btn-row" style="margin-top:0;">
-      <button type="button" class="nf-none-btn ${val.none?'active':''}" onclick="toggleNone('${key}')">${val.none? '✓ ':''}Không có gì</button>
+      <button type="button" class="nf-none-btn ${val.none?'active':''}" onclick="toggleNone('${key}')">${val.none? '✓ ':''}${meta.skip}</button>
     </div>
     ${!val.none? `<textarea oninput="logDraft.${key}.text=this.value" placeholder="Nhập nội dung...">${escHtml(val.text)}</textarea>` : ""}
   </div>`;
@@ -741,9 +744,70 @@ function toggleNone(key){
 }
 function nfShow(key){
   const v = logDraft[key];
-  return v.none ? "Không có gì" : (v.text.trim() || "(chưa trả lời)");
+  return v.none ? QUESTIONS[key].skip : (v.text.trim() || "(chưa trả lời)");
+}
+function plainField(key){
+  const err = formErrors.has(key);
+  return `<div id="field-${key}">
+    <label style="margin-top:0;">${QUESTIONS[key].q}</label>
+    ${err? `<div class="nf-err-msg">⚠️ Vui lòng nhập nội dung</div>` : ""}
+    <textarea oninput="logDraft.${key}=this.value" placeholder="Nhập nội dung..." class="${err?'field-invalid':''}">${escHtml(logDraft[key])}</textarea>
+  </div>`;
 }
 
+function extractLine(text, prefix){
+  if(!text) return null;
+  const lines = String(text).split("\n");
+  const line = lines.find(l=>l.startsWith(prefix));
+  return line==null ? null : line.slice(prefix.length);
+}
+function applyExtractedToNF(key, text, prefix){
+  const val = extractLine(text, prefix);
+  if(val==null) return;
+  const trimmed = val.trim();
+  if(trimmed===QUESTIONS[key].skip) logDraft[key] = {none:true, text:""};
+  else logDraft[key] = {none:false, text: trimmed};
+}
+function prefillFromReport(r){
+  resetLogDraft();
+  if(r.positions){
+    String(r.positions).split(",").map(s=>s.trim()).filter(Boolean).forEach(n=>{
+      if(DAILY_POSITIONS.includes(n)) selectedPositionNames.push(n);
+      else selectedPositionOther = n;
+    });
+  }
+  const p1 = extractLine(r.c1_self, "- Tự hào: ");
+  logDraft.q1_done = (p1 && p1!=="(chưa ghi)") ? p1 : "";
+  applyExtractedToNF("q2_patient", r.c1_self, "- Bệnh nhân: ");
+  applyExtractedToNF("q3_resource", r.c2_self, "- Nguồn lực: ");
+  applyExtractedToNF("q4_improve", r.c2_self, "- Cải tiến đã thử: ");
+  applyExtractedToNF("q5_idea", r.c3_self, "- Đề xuất: ");
+  const p6 = extractLine(r.c3_self, "- Kế hoạch ngày mai: ");
+  logDraft.q6_plan = (p6 && p6!=="(chưa ghi)") ? p6 : "";
+  if(r.c1_dept){
+    const d1 = extractLine(r.c1_dept, "- Kết quả: ");
+    logDraft.d1_result = (d1 && d1!=="(chưa ghi)") ? d1 : "";
+  }
+  if(r.c2_dept){
+    const d2 = extractLine(r.c2_dept, "- Chuẩn hóa/cải tiến: ");
+    logDraft.d2_standardize = (d2 && d2!=="(chưa ghi)") ? d2 : "";
+    const d3 = extractLine(r.c2_dept, "- Đề xuất: ");
+    logDraft.d3_propose = (d3 && d3!=="(chưa ghi)") ? d3 : "";
+  }
+  if(r.c3_dept){
+    const d4 = extractLine(r.c3_dept, "- Ngày mai: ");
+    logDraft.d4_tomorrow = (d4 && d4!=="(chưa ghi)") ? d4 : (r.c3_dept.trim() || "");
+  }
+  if(r.readiness) readinessDraft = r.readiness;
+  if(r.support) logDraft.c3_support = r.support;
+}
+function startEditExisting(){
+  if(!state.todayReport) return;
+  prefillFromReport(state.todayReport);
+  state.editingExisting = true;
+  state.editRowIndex = state.todayReport.rowIndex;
+  renderAll(); window.scrollTo(0,0);
+}
 function renderAlreadyReportedScreen(emp){
   const ts = state.todayReport ? fmtTimestamp(state.todayReport.timestamp) : "";
   return `<div class="panel" style="text-align:center;padding:40px 20px;">
@@ -756,55 +820,6 @@ function renderAlreadyReportedScreen(emp){
     </div>
   </div>
   ${(state.historyList!==null || state.historyHtml)? `<div class="panel">${renderHistoryResult()}</div>` : ""}`;
-}
-function extractLine(text, prefix){
-  if(!text) return null;
-  const lines = String(text).split("\n");
-  const line = lines.find(l=>l.startsWith(prefix));
-  return line==null ? null : line.slice(prefix.length);
-}
-function applyExtractedToNF(key, text, prefix){
-  const val = extractLine(text, prefix);
-  if(val==null) return;
-  const trimmed = val.trim();
-  if(trimmed==="Không có gì") logDraft[key] = {none:true, text:""};
-  else logDraft[key] = {none:false, text: trimmed};
-}
-function prefillFromReport(r){
-  resetLogDraft();
-  if(r.positions){
-    String(r.positions).split(",").map(s=>s.trim()).filter(Boolean).forEach(n=>{
-      if(DAILY_POSITIONS.includes(n)) selectedPositionNames.push(n);
-      else selectedPositionOther = n;
-    });
-  }
-  applyExtractedToNF("c1_done", r.c1_self, "- Hoàn thành: ");
-  applyExtractedToNF("c1_patient", r.c1_self, "- Bệnh nhân: ");
-  applyExtractedToNF("c1_mmtb", r.c1_self, "- MMTB/vật tư: ");
-  applyExtractedToNF("c1_process", r.c1_self, "- Quy trình: ");
-  applyExtractedToNF("c1_hr", r.c1_self, "- Phối hợp/nhân sự: ");
-  applyExtractedToNF("c2_new", r.c2_self, "- Áp dụng cải tiến/thực hành mới: ");
-  applyExtractedToNF("c2_idea", r.c2_self, "- Ý tưởng cải tiến/chuẩn hóa: ");
-  const planVal = extractLine(r.c3_self, "- Kế hoạch ngày mai: ");
-  logDraft.c3_plan = (planVal && planVal!=="(chưa ghi)") ? planVal : "";
-  applyExtractedToNF("c3_note", r.c3_self, "- Lưu ý vị trí ngày mai: ");
-  if(r.c1_dept){
-    applyExtractedToNF("cd_c1_new", r.c1_dept, "- Cải tiến/thực hành mới cho bộ phận: ");
-    applyExtractedToNF("cd_c1_idea", r.c1_dept, "- Ý tưởng cải tiến/chuẩn hóa: ");
-  }
-  if(r.c2_dept){
-    const planD = extractLine(r.c2_dept, "- Kế hoạch giao việc ngày mai: ");
-    logDraft.cd_c2_plan = (planD && planD!=="(chưa ghi)") ? planD : "";
-  }
-  if(r.readiness) readinessDraft = r.readiness;
-  if(r.support) logDraft.c3_support = r.support;
-}
-function startEditExisting(){
-  if(!state.todayReport) return;
-  prefillFromReport(state.todayReport);
-  state.editingExisting = true;
-  state.editRowIndex = state.todayReport.rowIndex;
-  renderAll(); window.scrollTo(0,0);
 }
 
 function renderLogTab(emp){
@@ -821,32 +836,37 @@ function renderLogTab(emp){
     <label style="margin-top:0;" id="field-positions">Những vị trí bạn làm hôm nay :</label>
     ${formErrors.has("positions")? `<div class="nf-err-msg">⚠️ Vui lòng chọn ít nhất 1 vị trí</div>` : ""}
     <div class="btn-row" style="margin-top:0;">
-      <button type="button" class="btn ${formErrors.has('positions')?'btn-ghost':'btn-ghost'}" style="${formErrors.has('positions')?'border:1.5px solid var(--rose);background:var(--rose-soft);color:var(--rose);':''}" onclick="openPositionModal()">📋 Chọn vị trí làm${allSelected.length? " ("+allSelected.length+" đã chọn)":""}</button>
+      <button type="button" class="btn btn-ghost" style="${formErrors.has('positions')?'border:1.5px solid var(--rose);background:var(--rose-soft);color:var(--rose);':''}" onclick="openPositionModal()">📋 Chọn vị trí làm${allSelected.length? " ("+allSelected.length+" đã chọn)":""}</button>
     </div>
     <div class="chip-row">${allSelected.length? allSelected.map(n=>`<span class="reminder-pill" style="background:var(--teal-soft);color:var(--teal-deep);">${n}</span>`).join("") : '<span class="hint" style="margin:8px 0 0;">Chưa chọn vị trí nào</span>'}</div>
   </div>`;
 
   html += `<div class="panel">
     <h3 style="margin-bottom:2px;">Báo cáo công việc của cá nhân hôm nay:</h3>
-
     <div class="c-block c-indigo">
-      ${noneField("c1_done")}
-      ${noneField("c1_patient")}
-      ${noneField("c1_mmtb")}
-      ${noneField("c1_process")}
-      ${noneField("c1_hr")}
+      ${plainField("q1_done")}
     </div>
-
+    <div class="c-block c-indigo">
+      ${noneField("q2_patient")}
+    </div>
     <div class="c-block c-amber">
-      ${noneField("c2_new")}
-      ${noneField("c2_idea")}
+      ${noneField("q3_resource")}
     </div>
-
+    <div class="c-block c-amber">
+      ${noneField("q4_improve")}
+    </div>
     <div class="c-block c-green">
-      <label style="margin-top:0;" id="field-c3_plan">Ngày mai bạn sẽ tiếp tục làm/ ưu tiên làm những việc gì?</label>
-      ${formErrors.has("c3_plan")? `<div class="nf-err-msg">⚠️ Vui lòng nhập nội dung</div>` : ""}
-      <textarea oninput="logDraft.c3_plan=this.value" placeholder="Nhập nội dung..." class="${formErrors.has('c3_plan')?'field-invalid':''}">${escHtml(logDraft.c3_plan)}</textarea>
-      ${noneField("c3_note")}
+      ${noneField("q5_idea")}
+    </div>
+    <div class="c-block c-green">
+      ${plainField("q6_plan")}
+      <label>Đã sẵn sàng cho ngày mai chưa?</label>
+      <div class="readiness-row">
+        ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
+        ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
+        ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
+      </div>
+      ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea oninput="logDraft.c3_support=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_support)}</textarea>`:""}
       <label>Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
       <div id="followUpList"></div>
       <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-ghost btn-small" onclick="addFollowUp()">+ Thêm việc cần theo dõi</button></div>
@@ -857,24 +877,10 @@ function renderLogTab(emp){
     html += `<div class="panel">
       <h3 style="margin-bottom:2px;">Báo cáo công việc Bộ phận</h3>
       <div class="hint" style="margin-top:-2px;">Nối tiếp phần báo cáo cá nhân — dành cho Leader trở lên.</div>
-
-      <div class="c-block c-amber">
-        ${noneField("cd_c1_new")}
-        ${noneField("cd_c1_idea")}
-      </div>
-
-      <div class="c-block c-green">
-        <label style="margin-top:0;" id="field-cd_c2_plan">Ngày mai bạn sẽ tiếp tục giao cho bộ phận mình làm những việc gì?</label>
-        ${formErrors.has("cd_c2_plan")? `<div class="nf-err-msg">⚠️ Vui lòng nhập nội dung</div>` : ""}
-        <textarea oninput="logDraft.cd_c2_plan=this.value" placeholder="Nhập nội dung..." class="${formErrors.has('cd_c2_plan')?'field-invalid':''}">${escHtml(logDraft.cd_c2_plan)}</textarea>
-        <label>Mức độ sẵn sàng của bộ phận bạn ngày mai thế nào?</label>
-        <div class="readiness-row">
-          ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
-          ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
-          ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
-        </div>
-        ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea oninput="logDraft.c3_support=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_support)}</textarea>`:""}
-      </div>
+      <div class="c-block c-indigo">${plainField("d1_result")}</div>
+      <div class="c-block c-amber">${plainField("d2_standardize")}</div>
+      <div class="c-block c-amber">${plainField("d3_propose")}</div>
+      <div class="c-block c-green">${plainField("d4_tomorrow")}</div>
     </div>`;
   }
 
@@ -883,23 +889,41 @@ function renderLogTab(emp){
   if(state.showPositionModal) html += positionModalHtml();
   return html;
 }
+function readinessOpt(val,label,desc){
+  return `<div class="readiness-opt ${val} ${readinessDraft===val?'active':''}" onclick="setReadiness('${val}')"><b>${label}</b>${desc}</div>`;
+}
+function setReadiness(v){ readinessDraft=v; renderAll(); }
+function addFollowUp(){ followUpDraft.push({title:"",sev:"normal"}); renderFollowUpList(); }
+function renderFollowUpList(){
+  const el = document.getElementById("followUpList");
+  if(!el) return;
+  el.innerHTML = followUpDraft.map((it,i)=>`
+    <div class="issue-row">
+      <input type="text" placeholder="Việc cần theo dõi..." value="${it.title.replace(/"/g,'&quot;')}" oninput="followUpDraft[${i}].title=this.value">
+      <select class="sev-select" onchange="followUpDraft[${i}].sev=this.value">
+        <option value="normal" ${it.sev==="normal"?"selected":""}>Bình thường</option>
+        <option value="urgent" ${it.sev==="urgent"?"selected":""}>Khẩn cấp</option>
+      </select>
+      <button type="button" class="btn btn-ghost btn-small" onclick="followUpDraft.splice(${i},1);renderFollowUpList()">Xóa</button>
+    </div>`).join("");
+}
+function statusLabel(s){ return s==="ok"?"Bình thường":s==="attention"?"Cần chú ý":s==="urgent"?"Cần xử lý ngay":""; }
 
-function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollTo(0,0); }
 function validateAndReview(empId){
   const emp = getEmp(empId);
   const isManager = scopeFor(emp).length>0;
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   formErrors = new Set();
   if(!allSelected.length) formErrors.add("positions");
-  ["c1_done","c1_patient","c1_mmtb","c1_process","c1_hr","c2_new","c2_idea","c3_note"].forEach(k=>{
+  if(!logDraft.q1_done.trim()) formErrors.add("q1_done");
+  NF_KEYS.forEach(k=>{
     if(!(logDraft[k].none || logDraft[k].text.trim())) formErrors.add(k);
   });
-  if(!logDraft.c3_plan.trim()) formErrors.add("c3_plan");
+  if(!logDraft.q6_plan.trim()) formErrors.add("q6_plan");
   if(isManager){
-    ["cd_c1_new","cd_c1_idea"].forEach(k=>{
-      if(!(logDraft[k].none || logDraft[k].text.trim())) formErrors.add(k);
+    PLAIN_KEYS_DEPT.forEach(k=>{
+      if(!logDraft[k].trim()) formErrors.add(k);
     });
-    if(!logDraft.cd_c2_plan.trim()) formErrors.add("cd_c2_plan");
   }
   if(formErrors.size > 0){
     renderAll();
@@ -912,6 +936,7 @@ function validateAndReview(empId){
   }
   openReview(empId);
 }
+function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollTo(0,0); }
 function closeReview(){ state.reviewMode = false; renderAll(); window.scrollTo(0,0); }
 function renderReviewPanel(emp){
   const isManager = scopeFor(emp).length>0;
@@ -922,24 +947,21 @@ function renderReviewPanel(emp){
     <div class="hint">Kiểm tra kỹ nội dung. Đúng rồi thì bấm "Xác nhận & Gửi" — cần sửa thì bấm "Chỉnh sửa".</div>
 
     <div class="review-row"><div class="review-label">Những vị trí bạn làm hôm nay</div><div class="review-value">${allSelected.length? escHtml(allSelected.join(", ")) : "(chưa chọn)"}</div></div>
-
-    <div class="review-row"><div class="review-label">${QUESTIONS.c1_done}</div><div class="review-value">${escHtml(nfShow("c1_done"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c1_patient}</div><div class="review-value">${escHtml(nfShow("c1_patient"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c1_mmtb}</div><div class="review-value">${escHtml(nfShow("c1_mmtb"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c1_process}</div><div class="review-value">${escHtml(nfShow("c1_process"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c1_hr}</div><div class="review-value">${escHtml(nfShow("c1_hr"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c2_new}</div><div class="review-value">${escHtml(nfShow("c2_new"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c2_idea}</div><div class="review-value">${escHtml(nfShow("c2_idea"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c3_plan}</div><div class="review-value">${escHtml(logDraft.c3_plan.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.c3_note}</div><div class="review-value">${escHtml(nfShow("c3_note"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q1_done.q}</div><div class="review-value">${escHtml(logDraft.q1_done.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q2_patient.q}</div><div class="review-value">${escHtml(nfShow("q2_patient"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q3_resource.q}</div><div class="review-value">${escHtml(nfShow("q3_resource"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q4_improve.q}</div><div class="review-value">${escHtml(nfShow("q4_improve"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q5_idea.q}</div><div class="review-value">${escHtml(nfShow("q5_idea"))}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.q6_plan.q}</div><div class="review-value">${escHtml(logDraft.q6_plan.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">Đã sẵn sàng cho ngày mai chưa?</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>
     ${followUps.length? `<div class="review-row"><div class="review-label">Việc cần theo dõi</div><div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div></div>`:""}
   `;
   if(isManager){
     html += `<h3 style="margin:20px 0 4px;">Báo cáo công việc Bộ phận</h3>
-    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c1_new}</div><div class="review-value">${escHtml(nfShow("cd_c1_new"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c1_idea}</div><div class="review-value">${escHtml(nfShow("cd_c1_idea"))}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.cd_c2_plan}</div><div class="review-value">${escHtml(logDraft.cd_c2_plan.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.readiness}</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>`;
+    <div class="review-row"><div class="review-label">${QUESTIONS.d1_result.q}</div><div class="review-value">${escHtml(logDraft.d1_result.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.d2_standardize.q}</div><div class="review-value">${escHtml(logDraft.d2_standardize.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.d3_propose.q}</div><div class="review-value">${escHtml(logDraft.d3_propose.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">${QUESTIONS.d4_tomorrow.q}</div><div class="review-value">${escHtml(logDraft.d4_tomorrow.trim()||"(chưa trả lời)")}</div></div>`;
   }
   html += `<div class="btn-row" style="margin-top:18px;">
       <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
@@ -948,7 +970,6 @@ function renderReviewPanel(emp){
   </div>`;
   return html;
 }
-
 function renderSubmitSuccess(emp){
   return `<div class="panel" style="text-align:center;padding:48px 20px;">
     <div style="font-size:44px;margin-bottom:10px;">✅</div>
@@ -995,27 +1016,7 @@ function copyToZalo(code){
     alert("Không copy được tự động trên trình duyệt này. Vui lòng vào tab 'Xem lịch sử báo cáo' để tự copy nội dung thủ công.");
   });
 }
-function readinessOpt(val,label,desc){
-  return `<div class="readiness-opt ${val} ${readinessDraft===val?'active':''}" onclick="setReadiness('${val}')"><b>${label}</b>${desc}</div>`;
-}
-function setReadiness(v){ readinessDraft=v; renderAll(); }
-function addFollowUp(){ followUpDraft.push({title:"",sev:"normal"}); renderFollowUpList(); }
-function renderFollowUpList(){
-  const el = document.getElementById("followUpList");
-  if(!el) return;
-  el.innerHTML = followUpDraft.map((it,i)=>`
-    <div class="issue-row">
-      <input type="text" placeholder="Việc cần theo dõi..." value="${it.title.replace(/"/g,'&quot;')}" oninput="followUpDraft[${i}].title=this.value">
-      <select class="sev-select" onchange="followUpDraft[${i}].sev=this.value">
-        <option value="normal" ${it.sev==="normal"?"selected":""}>Bình thường</option>
-        <option value="urgent" ${it.sev==="urgent"?"selected":""}>Khẩn cấp</option>
-      </select>
-      <button type="button" class="btn btn-ghost btn-small" onclick="followUpDraft.splice(${i},1);renderFollowUpList()">Xóa</button>
-    </div>`).join("");
-}
-function statusLabel(s){ return s==="ok"?"Bình thường":s==="attention"?"Cần chú ý":s==="urgent"?"Cần xử lý ngay":""; }
 
-/* ===== Lịch sử báo cáo (tải theo yêu cầu, không tự tải sẵn) ===== */
 const HISTORY_PAGE_SIZE = 7;
 function historyBlock(emp){
   return `<div class="panel">
@@ -1023,8 +1024,6 @@ function historyBlock(emp){
     <div id="historyResult">${renderHistoryResult()}</div>
   </div>`;
 }
-/** Chuyển mọi kiểu giá trị ngày (chuỗi "yyyy-MM-dd", chuỗi ISO có giờ, hoặc lỗi định dạng)
- * thành hiển thị an toàn — không bao giờ hiện "Invalid Date". */
 function fmtDateSafe(d){
   if(!d) return "—";
   const datePart = String(d).split("T")[0];
@@ -1032,7 +1031,13 @@ function fmtDateSafe(d){
   if(isNaN(dt.getTime())) return datePart;
   return dt.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
-function sortKeyDate(d){ return String(d||"").split("T")[0]; }
+function fmtTimestamp(ts){
+  if(!ts) return "—";
+  const m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if(m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+  return fmtDateSafe(ts);
+}
+function sortKeyTs(r){ return r.timestamp || r.date || ""; }
 async function loadReportHistory(code){
   state.historyHtml = `<div class="empty" style="margin-top:10px;">Đang tải lịch sử báo cáo...</div>`;
   state.historyList = null; state.historyPage = 1;
@@ -1056,13 +1061,6 @@ async function loadReportHistory(code){
   renderAll();
 }
 function showMoreHistory(){ state.historyPage++; renderAll(); }
-function fmtTimestamp(ts){
-  if(!ts) return "—";
-  const m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-  if(m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
-  return fmtDateSafe(ts);
-}
-function sortKeyTs(r){ return r.timestamp || r.date || ""; }
 function renderHistoryResult(){
   if(state.historyHtml) return state.historyHtml;
   if(!state.historyList) return "";
@@ -1086,19 +1084,17 @@ function historyCardLocal(r){
   return `<div class="card" style="margin-top:10px;">
       <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtTimestamp(r.timestamp)}</div>
       ${r.positionsToday && r.positionsToday.length? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positionsToday.join(", ")}</div>`:""}
-      <div style="margin:6px 0;font-size:12.5px;"><b>Hoàn thành:</b> ${fieldSummary(r.c1_done)}</div>
-      <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai:</b> ${r.c3_plan||"<i>(trống)</i>"}</div>
+      <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;">${r.c1_self||"(trống)"}</div>
+      <div style="margin:6px 0;font-size:12.5px;">${r.c3_self||"(trống)"}</div>
     </div>`;
 }
 function historyCardApi(r){
   return `<div class="card" style="margin-top:10px;">
       <div class="title mono" style="font-size:12px;color:var(--teal-deep)">${fmtTimestamp(r.timestamp)}</div>
       ${r.positions? `<div class="meta" style="margin-bottom:6px;">Vị trí: ${r.positions}</div>`:""}
-      <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;"><b>Cá nhân:</b>\n${r.c1_self||"(trống)"}</div>
-      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;margin-top:6px;"><b>Bộ phận:</b>\n${r.c1_dept}</div>`:""}
-      ${r.c2_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;"><b>Bộ phận (kế hoạch):</b>\n${r.c2_dept}</div>`:""}
+      <div style="margin:6px 0;font-size:12.5px;white-space:pre-wrap;"><b>Cá nhân:</b>\n${r.c1_self||"(trống)"}\n${r.c2_self||""}\n${r.c3_self||""}</div>
+      ${r.c1_dept?`<div style="font-size:12.5px;color:var(--indigo);white-space:pre-wrap;margin-top:6px;"><b>Bộ phận:</b>\n${r.c1_dept}\n${r.c2_dept||""}\n${r.c3_dept||""}</div>`:""}
       ${r.readiness?`<div style="font-size:12.5px;margin-top:6px;"><b>Sẵn sàng ngày mai:</b> ${readinessLabelText(r.readiness)}${r.support?" — "+r.support:""}</div>`:""}
-      <div style="margin:6px 0;font-size:12.5px;"><b>Kế hoạch ngày mai (cá nhân):</b> ${r.c3_self||"(trống)"}</div>
     </div>`;
 }
 
@@ -1110,35 +1106,33 @@ async function submitLog(empId){
   const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
 
   const c1_self = [
-    "- Hoàn thành: " + nfShow("c1_done"),
-    "- Bệnh nhân: " + nfShow("c1_patient"),
-    "- MMTB/vật tư: " + nfShow("c1_mmtb"),
-    "- Quy trình: " + nfShow("c1_process"),
-    "- Phối hợp/nhân sự: " + nfShow("c1_hr")
+    "- Tự hào: " + (logDraft.q1_done.trim() || "(chưa ghi)"),
+    "- Bệnh nhân: " + nfShow("q2_patient")
   ].join("\n");
   const c2_self = [
-    "- Áp dụng cải tiến/thực hành mới: " + nfShow("c2_new"),
-    "- Ý tưởng cải tiến/chuẩn hóa: " + nfShow("c2_idea")
+    "- Nguồn lực: " + nfShow("q3_resource"),
+    "- Cải tiến đã thử: " + nfShow("q4_improve")
   ].join("\n");
   const c3_self = [
-    "- Kế hoạch ngày mai: " + (logDraft.c3_plan.trim() || "(chưa ghi)"),
-    "- Lưu ý vị trí ngày mai: " + nfShow("c3_note")
+    "- Đề xuất: " + nfShow("q5_idea"),
+    "- Kế hoạch ngày mai: " + (logDraft.q6_plan.trim() || "(chưa ghi)")
   ].join("\n");
 
-  const c1_dept = isManager ? [
-    "- Cải tiến/thực hành mới cho bộ phận: " + nfShow("cd_c1_new"),
-    "- Ý tưởng cải tiến/chuẩn hóa: " + nfShow("cd_c1_idea")
+  const c1_dept = isManager ? ("- Kết quả: " + (logDraft.d1_result.trim() || "(chưa ghi)")) : "";
+  const c2_dept = isManager ? [
+    "- Chuẩn hóa/cải tiến: " + (logDraft.d2_standardize.trim() || "(chưa ghi)"),
+    "- Đề xuất: " + (logDraft.d3_propose.trim() || "(chưa ghi)")
   ].join("\n") : "";
-  const c2_dept = isManager ? ("- Kế hoạch giao việc ngày mai: " + (logDraft.cd_c2_plan.trim() || "(chưa ghi)")) : "";
+  const c3_dept = isManager ? ("- Ngày mai: " + (logDraft.d4_tomorrow.trim() || "(chưa ghi)")) : "";
 
   const report = {
     id:"r"+Date.now(), employeeId:empId, date:todayStr(), timestamp: nowTimestampStr(), status:"",
     positionsToday,
     c1_self, c1_dept,
     c2_self, c2_dept,
-    c3_self, c3_dept:"",
-    readiness: isManager? readinessDraft : null,
-    readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
+    c3_self, c3_dept,
+    readiness: readinessDraft,
+    readinessSupport: readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
   };
   if(isUpdate){
     const idx = DATA.reports.findIndex(r=>r.employeeId===empId && r.date===todayStr());
@@ -1156,9 +1150,9 @@ async function submitLog(empId){
   ];
   if(positionsToday.length) zaloLines.push(`Vị trí làm hôm nay: ${positionsToday.join(", ")}`);
   zaloLines.push("", "— BÁO CÁO CÁ NHÂN —", c1_self, c2_self, c3_self);
+  zaloLines.push("Sẵn sàng ngày mai: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
   if(isManager){
-    zaloLines.push("", "— BÁO CÁO BỘ PHẬN —", c1_dept, c2_dept);
-    zaloLines.push("Mức sẵn sàng: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
+    zaloLines.push("", "— BÁO CÁO BỘ PHẬN —", c1_dept, c2_dept, c3_dept);
   }
   if(followUpsSnapshot.length) zaloLines.push("", "Việc cần theo dõi: " + followUpsSnapshot.join("; "));
   state.lastReportSummary = zaloLines.join("\n");
@@ -1166,7 +1160,7 @@ async function submitLog(empId){
   followUpDraft.filter(i=>i.title.trim()).forEach(i=>{
     DATA.tasks.push({id:"t"+Date.now()+Math.random().toString(16).slice(2,6), employeeId:empId, title:i.title, severity:i.sev, source:"reported", status:"new", createdAt:todayStr(),
       dueDate:null, assignedBy:null, feedback:null, feedbackBy:null,
-      description:`Ghi nhận từ báo cáo 3C ngày ${fmtDate(todayStr())} (mục 3 — việc cần theo dõi).`, steps:[],
+      description:`Ghi nhận từ báo cáo 3C ngày ${fmtDate(todayStr())} (việc cần theo dõi).`, steps:[],
       doer:emp.name, reviewer:null, reportTo:null, detailStatus:"Đưa vào DS chờ thực hiện", note:"", onBoard:true});
   });
   resetLogDraft();
