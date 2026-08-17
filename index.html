@@ -882,13 +882,6 @@ function renderLogTab(emp){
     </div>
     <div class="c-block c-green">
       ${plainField("q6_plan")}
-      <label>Đã sẵn sàng cho ngày mai chưa?</label>
-      <div class="readiness-row">
-        ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
-        ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
-        ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
-      </div>
-      ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea oninput="logDraft.c3_support=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_support)}</textarea>`:""}
       <label>Việc cần theo dõi tiếp (sẽ tự chuyển vào Nhật ký công việc)</label>
       <div id="followUpList"></div>
       <div class="btn-row" style="margin-top:0;"><button type="button" class="btn btn-ghost btn-small" onclick="addFollowUp()">+ Thêm việc cần theo dõi</button></div>
@@ -902,7 +895,16 @@ function renderLogTab(emp){
       <div class="c-block c-indigo">${plainField("d1_result")}</div>
       <div class="c-block c-amber">${plainField("d2_standardize")}</div>
       <div class="c-block c-amber">${plainField("d3_propose")}</div>
-      <div class="c-block c-green">${plainField("d4_tomorrow")}</div>
+      <div class="c-block c-green">
+        ${plainField("d4_tomorrow")}
+        <label>Đã sẵn sàng cho ngày mai chưa?</label>
+        <div class="readiness-row">
+          ${readinessOpt("ready","✅ Sẵn sàng","Đủ người – máy hoạt động – vật tư đủ")}
+          ${readinessOpt("conditional","⚠️ Có điều kiện","Có vấn đề nhưng vẫn hoạt động, đang theo dõi")}
+          ${readinessOpt("notready","❌ Chưa sẵn sàng","Vấn đề cần xử lý trước khi ngày mai bắt đầu")}
+        </div>
+        ${readinessDraft!=="ready"? `<label>Cần ai hỗ trợ / quyết định?</label><textarea oninput="logDraft.c3_support=this.value" placeholder="Nhập nội dung...">${escHtml(logDraft.c3_support)}</textarea>`:""}
+      </div>
     </div>`;
   }
 
@@ -975,7 +977,6 @@ function renderReviewPanel(emp){
     <div class="review-row"><div class="review-label">${QUESTIONS.q4_improve.q}</div><div class="review-value">${escHtml(nfShow("q4_improve"))}</div></div>
     <div class="review-row"><div class="review-label">${QUESTIONS.q5_idea.q}</div><div class="review-value">${escHtml(nfShow("q5_idea"))}</div></div>
     <div class="review-row"><div class="review-label">${QUESTIONS.q6_plan.q}</div><div class="review-value">${escHtml(logDraft.q6_plan.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">Đã sẵn sàng cho ngày mai chưa?</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>
     ${followUps.length? `<div class="review-row"><div class="review-label">Việc cần theo dõi</div><div class="review-value">${followUps.map(i=>escHtml(i.title)+(i.sev==="urgent"?" ⚠️":"")).join("<br>")}</div></div>`:""}
   `;
   if(isManager){
@@ -983,7 +984,8 @@ function renderReviewPanel(emp){
     <div class="review-row"><div class="review-label">${QUESTIONS.d1_result.q}</div><div class="review-value">${escHtml(logDraft.d1_result.trim()||"(chưa trả lời)")}</div></div>
     <div class="review-row"><div class="review-label">${QUESTIONS.d2_standardize.q}</div><div class="review-value">${escHtml(logDraft.d2_standardize.trim()||"(chưa trả lời)")}</div></div>
     <div class="review-row"><div class="review-label">${QUESTIONS.d3_propose.q}</div><div class="review-value">${escHtml(logDraft.d3_propose.trim()||"(chưa trả lời)")}</div></div>
-    <div class="review-row"><div class="review-label">${QUESTIONS.d4_tomorrow.q}</div><div class="review-value">${escHtml(logDraft.d4_tomorrow.trim()||"(chưa trả lời)")}</div></div>`;
+    <div class="review-row"><div class="review-label">${QUESTIONS.d4_tomorrow.q}</div><div class="review-value">${escHtml(logDraft.d4_tomorrow.trim()||"(chưa trả lời)")}</div></div>
+    <div class="review-row"><div class="review-label">Đã sẵn sàng cho ngày mai chưa?</div><div class="review-value">${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim()? " — "+escHtml(logDraft.c3_support) : ""}</div></div>`;
   }
   html += `<div class="btn-row" style="margin-top:18px;">
       <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
@@ -1153,8 +1155,8 @@ async function submitLog(empId){
     c1_self, c1_dept,
     c2_self, c2_dept,
     c3_self, c3_dept,
-    readiness: readinessDraft,
-    readinessSupport: readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
+    readiness: isManager ? readinessDraft : null,
+    readinessSupport: isManager && readinessDraft!=="ready" ? logDraft.c3_support.trim() : ""
   };
   if(isUpdate){
     const idx = DATA.reports.findIndex(r=>r.employeeId===empId && r.date===todayStr());
@@ -1172,9 +1174,9 @@ async function submitLog(empId){
   ];
   if(positionsToday.length) zaloLines.push(`Vị trí làm hôm nay: ${positionsToday.join(", ")}`);
   zaloLines.push("", "— BÁO CÁO CÁ NHÂN —", c1_self, c2_self, c3_self);
-  zaloLines.push("Sẵn sàng ngày mai: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
   if(isManager){
     zaloLines.push("", "— BÁO CÁO BỘ PHẬN —", c1_dept, c2_dept, c3_dept);
+    zaloLines.push("Sẵn sàng ngày mai: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
   }
   if(followUpsSnapshot.length) zaloLines.push("", "Việc cần theo dõi: " + followUpsSnapshot.join("; "));
   state.lastReportSummary = zaloLines.join("\n");
