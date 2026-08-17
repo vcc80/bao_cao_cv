@@ -255,10 +255,10 @@ textarea.field-invalid{border-color:var(--rose);background:var(--rose-soft);}
     <h1>Quản trị công việc, đào tạo &amp; đánh giá</h1>
   </div>
   <div class="login-box">
-    <input type="text" id="empCodeInput" placeholder="Nhập mã NV, VD: NV-014" onkeydown="if(event.key==='Enter')loginByCode()">
+    <input type="text" id="empCodeInput" inputmode="numeric" placeholder="Nhập mã NV, VD: 101" onkeydown="if(event.key==='Enter')loginByCode()">
     <button class="btn btn-primary btn-small" onclick="loginByCode()">Vào báo cáo</button>
     <select id="personaSelect" onchange="switchEmployee(this.value)" title="(Demo) chọn nhanh nhân sự"></select>
-    <span class="login-hint">Mỗi nhân viên dùng link riêng — xem mã ở cuối link (?ma=NV-014)</span>
+    <span class="login-hint">Mỗi nhân viên dùng link riêng — xem mã ở cuối link (?ma=101)</span>
   </div>
 </div>
 <div class="layout">
@@ -509,7 +509,7 @@ async function checkTodayReport(){
 function renderAll(){
   const emp = getEmp(state.currentEmployeeId);
   renderTopSelect(emp);
-  if(!emp){ setTopbarVisible(true); renderLandingGate(); return; }
+  if(!emp){ setTopbarVisible(false); renderLandingGate(); return; }
   if(state.homeView==="home"){ setTopbarVisible(false); renderHomeScreen(emp); return; }
   if(state.homeView==="report"){
     setTopbarVisible(false);
@@ -573,9 +573,31 @@ function doLogout(){
 function renderLandingGate(){
   document.getElementById("sidebar").innerHTML = "";
   document.getElementById("tabs").innerHTML = "";
-  document.getElementById("tabContent").innerHTML = !apiConfigured()
-    ? `<div class="hint" style="color:var(--rose);text-align:center;padding:16px 24px;">⚠️ Hệ thống chưa kết nối được Google Sheet nhân sự (API_URL chưa cấu hình) — đang hiển thị danh sách demo tạm thời, không phải danh sách thật.</div>`
-    : "";
+  document.getElementById("tabContent").innerHTML = landingCodeModalHtml();
+}
+function landingCodeModalHtml(){
+  return `<div class="modal-overlay" style="align-items:center;">
+    <div class="modal-sheet" style="max-width:340px;border-radius:16px;max-height:none;">
+      <div class="modal-header" style="justify-content:center;border-bottom:none;padding-bottom:0;">
+        <h3>Nhập mã nhân viên</h3>
+      </div>
+      <div style="padding:6px 22px 22px;">
+        <div class="hint" style="text-align:center;margin:0 0 16px;">Dùng link chung? Nhập mã nhân viên của bạn (VD: 101) để bắt đầu.</div>
+        <input type="text" id="landingCodeInput" inputmode="numeric" placeholder="101"
+          style="width:100%;font-size:22px;text-align:center;letter-spacing:3px;border:1.5px solid var(--line);border-radius:10px;padding:14px;font-family:'IBM Plex Mono',monospace;"
+          onkeydown="if(event.key==='Enter')loginByCodeLanding()">
+        ${!apiConfigured()? `<div class="hint" style="color:var(--rose);margin-top:14px;">⚠️ Hệ thống chưa kết nối được Google Sheet nhân sự — đang dùng danh sách demo tạm thời, không phải danh sách thật.</div>`:""}
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-primary" style="width:100%;" onclick="loginByCodeLanding()">Bắt đầu</button></div>
+    </div>
+  </div>`;
+}
+function loginByCodeLanding(){
+  const raw = (document.getElementById("landingCodeInput").value||"").trim().toUpperCase();
+  if(!raw) return;
+  const emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  if(!emp){ alert("Không tìm thấy mã nhân viên \"" + raw + "\" trong danh sách. Vui lòng kiểm tra lại."); return; }
+  switchEmployee(emp.id);
 }
 function renderTopSelect(emp){
   const options = EMPLOYEES.map(e=>
@@ -645,11 +667,11 @@ let formErrors = new Set();
 // Câu dạng "plain": luôn phải gõ nội dung, không có nút "Không có gì".
 // Câu dạng "nf": có nút "Không có gì" riêng theo từng câu (skip label may khác nhau cho tự nhiên).
 const QUESTIONS = {
-  q1_done: { type:"plain", q:"Hôm nay bạn tự hào nhất về việc gì mình đã làm được?" },
+  q1_done: { type:"plain", q:"Hôm nay bạn đã làm được những việc gì có giá trị và đáng kể ?" },
   q2_patient: { type:"nf", q:"Bệnh nhân hôm nay có khen, phàn nàn hay tình huống gì đáng chú ý không?", skip:"Không có vấn đề phát sinh" },
   q3_resource: { type:"nf", q:"Máy móc – vật tư – quy trình – nhân sự hôm nay có vấn đề gì cần xử lý tiếp không?", skip:"Không có vấn đề phát sinh" },
-  q4_improve: { type:"nf", q:"Hôm nay bạn có thử cách làm mới nào không? Kết quả thế nào?", skip:"Chưa thử cách làm mới nào" },
-  q5_idea: { type:"nf", q:"Bạn có đề xuất gì để ngày mai làm tốt hơn không?", skip:"Chưa có đề xuất gì thêm" },
+  q4_improve: { type:"nf", q:"Hôm nay vị trí bạn làm có triển khai cách làm mới hay cải tiến gì mới không ? Nếu có thì cách mới này kết quả thế nào?", skip:"Chưa thử cách làm mới nào" },
+  q5_idea: { type:"nf", q:"Hôm nay Bạn có đề xuất cải tiến hay chuẩn hóa lại vấn đề gì để công việc được tốt hơn, bệnh nhân hài lòng hơn không ?", skip:"Chưa có đề xuất gì thêm" },
   q6_plan: { type:"plain", q:"Ngày mai 1–3 việc quan trọng nhất bạn phải hoàn thành là gì?" },
   d1_result: { type:"plain", q:"Hôm nay bạn đã triển khai việc gì và bộ phận đã hoàn thành được kết quả đáng kể nào?" },
   d2_standardize: { type:"plain", q:"Hôm nay bộ phận đã triển khai chuẩn hóa/cải tiến điều gì? Kết quả thực tế thế nào?" },
