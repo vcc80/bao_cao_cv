@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Bảng tổng hợp báo cáo — Phòng Khám Đa Khoa Dân Y</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#F4F7F5; --surface:#FFFFFF; --ink:#16302B; --ink-soft:#5C7169; --line:#DCE6E1;
+  --teal:#2F6F62; --teal-deep:#1F4A40; --teal-soft:#E3EFEA;
+  --amber:#DB9536; --amber-soft:#FBEDD8;
+  --rose:#BE5648; --rose-soft:#F7E3E0;
+  --green:#4C8C6B; --green-soft:#E3EFE7;
+  --indigo:#4D57C7; --indigo-soft:#E4E7FB;
+  --slate:#7A8A85; --gold:#B4862B; --gold-soft:#F6EBD2;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+
+.topbar{background:var(--teal-deep);color:#fff;padding:18px 26px;}
+.topbar .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9FC3B7;}
+.topbar h1{font-family:'Source Serif 4',serif;font-weight:600;font-size:21px;margin:2px 0 0;}
+
+.controls{max-width:1180px;margin:18px auto 0;padding:0 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.controls input[type=date]{border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--surface);}
+.btn{border:none;border-radius:8px;padding:9px 16px;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;}
+.btn-primary{background:var(--teal);color:#fff;}
+.btn-primary:hover{background:var(--teal-deep);}
+.btn-ghost{background:var(--teal-soft);color:var(--teal-deep);}
+.spacer{flex:1;}
+.updated-note{font-size:11.5px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
+
+.branch-tabs{max-width:1180px;margin:16px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);}
+.branch-tab{background:none;border:none;padding:10px 18px;font-family:'Inter',sans-serif;font-weight:700;font-size:13.5px;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.branch-tab.active{color:var(--teal-deep);border-bottom-color:var(--teal);}
+
+.view-toggle{max-width:1180px;margin:16px auto 0;padding:0 20px;display:flex;gap:8px;}
+.view-btn{flex:1;max-width:260px;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 16px;font-family:'Inter',sans-serif;font-weight:700;font-size:13.5px;color:var(--ink-soft);cursor:pointer;text-align:center;}
+.view-btn.active{border-color:var(--teal);background:var(--teal-soft);color:var(--teal-deep);}
+
+.wrap{max-width:1180px;margin:18px auto 60px;padding:0 20px;}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:18px;}
+.panel h2{margin:0 0 4px;font-family:'Source Serif 4',serif;font-size:18px;}
+.panel h3{margin:22px 0 10px;font-family:'Source Serif 4',serif;font-size:15px;color:var(--teal-deep);border-top:1px solid var(--line);padding-top:16px;}
+.panel h3:first-of-type{border-top:none;padding-top:0;margin-top:14px;}
+.hint{color:var(--ink-soft);font-size:12.5px;}
+
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 4px;}
+.stat-box{flex:1;min-width:130px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;}
+.stat-box .num{font-family:'Source Serif 4',serif;font-size:26px;font-weight:700;color:var(--teal-deep);}
+.stat-box .lbl{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.stat-box.rose .num{color:var(--rose);}
+.stat-box.green .num{color:var(--green);}
+.stat-box.amber .num{color:var(--amber);}
+
+.name-pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.name-pill{font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:99px;background:var(--teal-soft);color:var(--teal-deep);}
+.name-pill.missing{background:var(--rose-soft);color:var(--rose);}
+
+.highlight-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:9px;}
+.highlight-card .who{font-weight:700;font-size:12.5px;color:var(--teal-deep);margin-bottom:4px;}
+.highlight-card .who .meta{font-weight:500;color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:6px;}
+.highlight-card .txt{font-size:13px;white-space:pre-wrap;}
+.highlight-card.issue{border-left:3px solid var(--rose);background:var(--rose-soft);}
+.highlight-card.idea{border-left:3px solid var(--amber);background:var(--amber-soft);}
+.highlight-card.done{border-left:3px solid var(--green);background:var(--green-soft);}
+
+.empty{color:var(--slate);font-size:12.5px;padding:10px 2px;}
+.loading{text-align:center;padding:60px 20px;color:var(--ink-soft);}
+.readiness-summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.readiness-summary span{font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;}
+.rd-ready{background:var(--green-soft);color:var(--green);}
+.rd-conditional{background:var(--amber-soft);color:var(--amber);}
+.rd-notready{background:var(--rose-soft);color:var(--rose);}
+
+@media (max-width:640px){
+  .view-toggle{flex-direction:column;}
+  .view-btn{max-width:none;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="eyebrow">Phòng Khám Đa Khoa Dân Y — Công cụ điều hành</span>
+  <h1>Bảng tổng hợp báo cáo</h1>
+</div>
+<div class="controls">
+  <input type="date" id="datePicker">
+  <button class="btn btn-primary" onclick="loadAll()">🔄 Tải lại</button>
+  <span class="updated-note" id="updatedNote"></span>
+  <div class="spacer"></div>
+</div>
+<div class="branch-tabs" id="branchTabs"></div>
+<div class="view-toggle" id="viewToggle"></div>
+<div class="wrap" id="content"></div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbxU1FaVADYWBA6I-M0U2GGT6YhD4prxS3zT9lrQDGlxDtVMURwpJXRADaOtEWsDEH-Pmw/exec";
+const ROLE_LABELS = { staff:"Nhân viên", leader:"Leader", som:"SOM", functional_head:"Trưởng ban", director:"Ban điều hành" };
+const LEADER_ROLES = ["leader","som","functional_head","director"];
+
+const SKIP = {
+  patient: "Không có vấn đề phát sinh",
+  resource: "Không có vấn đề phát sinh",
+  improve: "Chưa thử cách làm mới nào",
+  idea: "Chưa có đề xuất gì thêm"
+};
+const EMPTY_MARKERS = ["", "(chưa ghi)", "(chưa trả lời)"];
+
+let state = { date: todayStr(), branch: null, view: "staff", employees: [], reports: [], loading: true, error: null };
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function fmtDate(d){ if(!d) return "—"; const dt=new Date(d+"T00:00:00"); return dt.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"}); }
+function fmtTimestamp(ts){
+  if(!ts) return "";
+  const m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if(m) return m[4]+":"+m[5];
+  return "";
+}
+async function apiGet(action, params){
+  const url = new URL(API_URL);
+  url.searchParams.set("action", action);
+  Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if(data && data.error) throw new Error(data.error);
+  return data;
+}
+function extractLine(text, prefix){
+  if(!text) return null;
+  const lines = String(text).split("\n");
+  const line = lines.find(l=>l.startsWith(prefix));
+  return line==null ? null : line.slice(prefix.length).trim();
+}
+function isEmptyVal(v){ return v==null || EMPTY_MARKERS.includes(v.trim()); }
+function isSkip(v, skipLabel){ return v!=null && v.trim()===skipLabel; }
+
+async function loadAll(){
+  state.loading = true; state.error = null;
+  render();
+  try{
+    const [employees, reports] = await Promise.all([
+      apiGet("employees"),
+      apiGet("reportsByDate", { date: state.date })
+    ]);
+    state.employees = employees || [];
+    state.reports = reports || [];
+    if(!state.branch){
+      const branches = [...new Set(state.employees.map(e=>e.branch).filter(Boolean))].sort();
+      state.branch = branches.includes("DY1") ? "DY1" : (branches[0] || null);
+    }
+    document.getElementById("updatedNote").textContent = "Cập nhật lúc " + new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
+  }catch(err){
+    state.error = String(err.message || err);
+  }
+  state.loading = false;
+  render();
+}
+
+function render(){
+  document.getElementById("datePicker").value = state.date;
+  renderBranchTabs();
+  renderViewToggle();
+  const el = document.getElementById("content");
+  if(state.loading){ el.innerHTML = `<div class="loading">Đang tải dữ liệu...</div>`; return; }
+  if(state.error){ el.innerHTML = `<div class="panel"><div class="empty" style="color:var(--rose);">Lỗi tải dữ liệu: ${escHtml(state.error)}</div></div>`; return; }
+  if(!state.branch){ el.innerHTML = `<div class="panel"><div class="empty">Chưa có dữ liệu nhân viên.</div></div>`; return; }
+  el.innerHTML = state.view==="staff" ? renderStaffReport(state.branch) : renderLeaderReport(state.branch);
+}
+
+function renderBranchTabs(){
+  const branches = [...new Set(state.employees.map(e=>e.branch).filter(Boolean))].sort();
+  document.getElementById("branchTabs").innerHTML = branches.map(b=>
+    `<button class="branch-tab ${state.branch===b?'active':''}" onclick="setBranch('${b}')">${b}</button>`
+  ).join("");
+}
+function setBranch(b){ state.branch = b; render(); }
+function renderViewToggle(){
+  document.getElementById("viewToggle").innerHTML = `
+    <button class="view-btn ${state.view==='staff'?'active':''}" onclick="setView('staff')">👩‍⚕️ Báo cáo Nhân viên</button>
+    <button class="view-btn ${state.view==='leader'?'active':''}" onclick="setView('leader')">🧭 Báo cáo Leader / Trưởng bộ phận</button>
+  `;
+}
+function setView(v){ state.view = v; render(); }
+
+function reportOf(code){
+  const list = state.reports.filter(r=>r.code===code);
+  if(!list.length) return null;
+  list.sort((a,b)=> String(b.timestamp||"").localeCompare(String(a.timestamp||"")));
+  return list[0];
+}
+
+function renderStaffReport(branch){
+  const staff = state.employees.filter(e=>e.branch===branch && e.role==="staff");
+  const reported = staff.filter(e=>reportOf(e.code));
+  const missing = staff.filter(e=>!reportOf(e.code));
+
+  const done=[], ideas=[], issues=[];
+  reported.forEach(e=>{
+    const r = reportOf(e.code);
+    const tuHao = extractLine(r.c1_self, "- Tự hào: ");
+    if(!isEmptyVal(tuHao)) done.push({name:e.name, time:fmtTimestamp(r.timestamp), text:tuHao});
+    const deXuat = extractLine(r.c3_self, "- Đề xuất: ");
+    if(!isEmptyVal(deXuat) && !isSkip(deXuat, SKIP.idea)) ideas.push({name:e.name, time:fmtTimestamp(r.timestamp), text:deXuat});
+    const benhNhan = extractLine(r.c1_self, "- Bệnh nhân: ");
+    if(!isEmptyVal(benhNhan) && !isSkip(benhNhan, SKIP.patient)) issues.push({name:e.name, time:fmtTimestamp(r.timestamp), text:benhNhan, tag:"Bệnh nhân"});
+    const nguonLuc = extractLine(r.c2_self, "- Nguồn lực: ");
+    if(!isEmptyVal(nguonLuc) && !isSkip(nguonLuc, SKIP.resource)) issues.push({name:e.name, time:fmtTimestamp(r.timestamp), text:nguonLuc, tag:"Nguồn lực"});
+  });
+
+  return `
+  <div class="panel">
+    <h2>Báo cáo Nhân viên — ${branch}</h2>
+    <div class="hint">Ngày ${fmtDate(state.date)}</div>
+    <div class="stat-row">
+      <div class="stat-box green"><div class="num">${reported.length}</div><div class="lbl">đã báo cáo</div></div>
+      <div class="stat-box rose"><div class="num">${missing.length}</div><div class="lbl">chưa báo cáo</div></div>
+      <div class="stat-box"><div class="num">${staff.length}</div><div class="lbl">tổng nhân viên</div></div>
+    </div>
+    <h3>Danh sách đã báo cáo (${reported.length})</h3>
+    ${reported.length? `<div class="name-pill-row">${reported.map(e=>`<span class="name-pill">${escHtml(e.name)} · ${fmtTimestamp(reportOf(e.code).timestamp)}</span>`).join("")}</div>` : `<div class="empty">Chưa có ai báo cáo.</div>`}
+    <h3>Chưa báo cáo (${missing.length})</h3>
+    ${missing.length? `<div class="name-pill-row">${missing.map(e=>`<span class="name-pill missing">${escHtml(e.name)}</span>`).join("")}</div>` : `<div class="empty">Không còn ai — mọi người đã báo cáo đủ.</div>`}
+
+    <h3>✅ Công việc làm được nổi bật (${done.length})</h3>
+    ${done.length? done.map(h=>highlightCard(h,"done")).join("") : `<div class="empty">Chưa có nội dung nổi bật.</div>`}
+
+    <h3>💡 Đề xuất nổi bật (${ideas.length})</h3>
+    ${ideas.length? ideas.map(h=>highlightCard(h,"idea")).join("") : `<div class="empty">Chưa có đề xuất nào.</div>`}
+
+    <h3>⚠️ Vấn đề phát sinh cần giải quyết (${issues.length})</h3>
+    ${issues.length? issues.map(h=>highlightCard(h,"issue",true)).join("") : `<div class="empty">Không có vấn đề phát sinh.</div>`}
+  </div>`;
+}
+
+function renderLeaderReport(branch){
+  const leaders = state.employees.filter(e=>e.branch===branch && LEADER_ROLES.includes(e.role));
+  const reported = leaders.filter(e=>reportOf(e.code));
+  const missing = leaders.filter(e=>!reportOf(e.code));
+
+  const done=[], ideas=[], issues=[];
+  const deptResults=[], deptIdeas=[], deptPlans=[];
+  let rd = {ready:0, conditional:0, notready:0};
+
+  reported.forEach(e=>{
+    const r = reportOf(e.code);
+    const tag = ` [${ROLE_LABELS[e.role]}]`;
+    const tuHao = extractLine(r.c1_self, "- Tự hào: ");
+    if(!isEmptyVal(tuHao)) done.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:tuHao});
+    const deXuat = extractLine(r.c3_self, "- Đề xuất: ");
+    if(!isEmptyVal(deXuat) && !isSkip(deXuat, SKIP.idea)) ideas.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:deXuat});
+    const benhNhan = extractLine(r.c1_self, "- Bệnh nhân: ");
+    if(!isEmptyVal(benhNhan) && !isSkip(benhNhan, SKIP.patient)) issues.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:benhNhan, tag:"Bệnh nhân"});
+    const nguonLuc = extractLine(r.c2_self, "- Nguồn lực: ");
+    if(!isEmptyVal(nguonLuc) && !isSkip(nguonLuc, SKIP.resource)) issues.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:nguonLuc, tag:"Nguồn lực"});
+
+    const ketQua = extractLine(r.c1_dept, "- Kết quả: ");
+    if(!isEmptyVal(ketQua)) deptResults.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:ketQua});
+    const chuanHoa = extractLine(r.c2_dept, "- Chuẩn hóa/cải tiến: ");
+    if(!isEmptyVal(chuanHoa)) deptIdeas.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:chuanHoa, label:"Chuẩn hóa/cải tiến"});
+    const deXuatBP = extractLine(r.c2_dept, "- Đề xuất: ");
+    if(!isEmptyVal(deXuatBP)) deptIdeas.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:deXuatBP, label:"Đề xuất"});
+    const ngayMai = extractLine(r.c3_dept, "- Ngày mai: ");
+    if(!isEmptyVal(ngayMai)) deptPlans.push({name:e.name+tag, time:fmtTimestamp(r.timestamp), text:ngayMai});
+
+    if(r.readiness && rd.hasOwnProperty(r.readiness)) rd[r.readiness]++;
+  });
+
+  return `
+  <div class="panel">
+    <h2>Báo cáo Leader / Trưởng bộ phận — ${branch}</h2>
+    <div class="hint">Ngày ${fmtDate(state.date)}</div>
+    <div class="stat-row">
+      <div class="stat-box green"><div class="num">${reported.length}</div><div class="lbl">đã báo cáo</div></div>
+      <div class="stat-box rose"><div class="num">${missing.length}</div><div class="lbl">chưa báo cáo</div></div>
+      <div class="stat-box"><div class="num">${leaders.length}</div><div class="lbl">tổng Leader/TBP</div></div>
+    </div>
+    <h3>Danh sách đã báo cáo (${reported.length})</h3>
+    ${reported.length? `<div class="name-pill-row">${reported.map(e=>`<span class="name-pill">${escHtml(e.name)} (${ROLE_LABELS[e.role]}) · ${fmtTimestamp(reportOf(e.code).timestamp)}</span>`).join("")}</div>` : `<div class="empty">Chưa có ai báo cáo.</div>`}
+    <h3>Chưa báo cáo (${missing.length})</h3>
+    ${missing.length? `<div class="name-pill-row">${missing.map(e=>`<span class="name-pill missing">${escHtml(e.name)} (${ROLE_LABELS[e.role]})</span>`).join("")}</div>` : `<div class="empty">Không còn ai — mọi người đã báo cáo đủ.</div>`}
+
+    <h3>🟢 Mức độ sẵn sàng ngày mai (cấp bộ phận)</h3>
+    <div class="readiness-summary">
+      <span class="rd-ready">✅ Sẵn sàng: ${rd.ready}</span>
+      <span class="rd-conditional">⚠️ Có điều kiện: ${rd.conditional}</span>
+      <span class="rd-notready">❌ Chưa sẵn sàng: ${rd.notready}</span>
+    </div>
+
+    <h3>— Cấp cá nhân —</h3>
+    <h3 style="border-top:none;padding-top:0;">✅ Công việc làm được nổi bật (${done.length})</h3>
+    ${done.length? done.map(h=>highlightCard(h,"done")).join("") : `<div class="empty">Chưa có nội dung nổi bật.</div>`}
+    <h3>💡 Đề xuất nổi bật (${ideas.length})</h3>
+    ${ideas.length? ideas.map(h=>highlightCard(h,"idea")).join("") : `<div class="empty">Chưa có đề xuất nào.</div>`}
+    <h3>⚠️ Vấn đề phát sinh cần giải quyết (${issues.length})</h3>
+    ${issues.length? issues.map(h=>highlightCard(h,"issue",true)).join("") : `<div class="empty">Không có vấn đề phát sinh.</div>`}
+
+    <h3>— Cấp bộ phận —</h3>
+    <h3 style="border-top:none;padding-top:0;">✅ Kết quả bộ phận nổi bật (${deptResults.length})</h3>
+    ${deptResults.length? deptResults.map(h=>highlightCard(h,"done")).join("") : `<div class="empty">Chưa có nội dung.</div>`}
+    <h3>💡 Chuẩn hóa / Đề xuất cải tiến bộ phận (${deptIdeas.length})</h3>
+    ${deptIdeas.length? deptIdeas.map(h=>highlightCard({...h, text:`[${h.label}] `+h.text},"idea")).join("") : `<div class="empty">Chưa có nội dung.</div>`}
+    <h3>📌 Kế hoạch ngày mai của bộ phận (${deptPlans.length})</h3>
+    ${deptPlans.length? deptPlans.map(h=>highlightCard(h,"")).join("") : `<div class="empty">Chưa có nội dung.</div>`}
+  </div>`;
+}
+
+function highlightCard(h, cls, showTag){
+  return `<div class="highlight-card ${cls}">
+    <div class="who">${escHtml(h.name)}${h.time?`<span class="meta">${h.time}</span>`:""}${showTag&&h.tag?`<span class="meta">· ${h.tag}</span>`:""}</div>
+    <div class="txt">${escHtml(h.text)}</div>
+  </div>`;
+}
+
+document.getElementById("datePicker").addEventListener("change", (e)=>{ state.date = e.target.value; loadAll(); });
+loadAll();
+</script>
+</body>
+</html>
