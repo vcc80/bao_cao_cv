@@ -414,7 +414,7 @@ const SEED = {
 };
 
 let DATA = null;
-let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null, lastReportSummary:"", reportGate:null, todayReport:null, editingExisting:false, editRowIndex:null, lastWasUpdate:false };
+let state = { currentEmployeeId:null, homeView:"home", activeTab:"worklog", openQuiz:null, openWorklog:null, reportStatusHtml:null, showPositionModal:false, reviewMode:false, justSubmitted:false, submitWarning:null, historyHtml:null, historyList:null, historyPage:1, historySource:null, lastReportSummary:"", reportGate:null, todayReport:null, editingExisting:false, editRowIndex:null, lastWasUpdate:false, isSubmitting:false };
 
 async function loadData(){
   try{ const res = await window.storage.get("clinic-data-v4", true); DATA = JSON.parse(res.value); }
@@ -458,7 +458,7 @@ function saveLastCode(code){ try{ if(code) localStorage.setItem(LS_KEY, code); }
 function getLastCode(){ try{ return localStorage.getItem(LS_KEY); }catch(e){ return null; } }
 function clearLastCode(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
 
-function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; resetLogDraft(); const e=getEmp(id); if(e) saveLastCode(e.code); renderAll(); }
+function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; state.isSubmitting=false; resetLogDraft(); const e=getEmp(id); if(e) saveLastCode(e.code); renderAll(); }
 function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
@@ -492,6 +492,10 @@ function goReport(){
   if(apiConfigured()) checkTodayReport();
 }
 function goWork(){ state.homeView="work"; if(state.activeTab==="log") state.activeTab="worklog"; renderAll(); window.scrollTo(0,0); }
+function submitAnotherReport(){
+  state.justSubmitted = false;
+  goReport(); // dùng lại đúng logic kiểm tra "đã báo cáo hôm nay chưa" như khi vào từ Trang chủ
+}
 async function checkTodayReport(){
   const emp = getEmp(state.currentEmployeeId);
   if(!emp) return;
@@ -993,7 +997,7 @@ function renderReviewPanel(emp){
   }
   html += `<div class="btn-row" style="margin-top:18px;">
       <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeReview()">← Chỉnh sửa</button>
-      <button type="button" class="btn btn-primary" style="flex:1;" onclick="submitLog('${emp.id}')">${state.editingExisting? "✓ Xác nhận & Cập nhật" : "✓ Xác nhận & Gửi báo cáo"}</button>
+      <button type="button" class="btn btn-primary" style="flex:1;" ${state.isSubmitting?'disabled':''} onclick="this.disabled=true; this.textContent='Đang gửi...'; submitLog('${emp.id}')">${state.editingExisting? "✓ Xác nhận & Cập nhật" : "✓ Xác nhận & Gửi báo cáo"}</button>
     </div>
   </div>`;
   return html;
@@ -1009,7 +1013,7 @@ function renderSubmitSuccess(emp){
       <button type="button" class="btn btn-ghost" style="background:#0068FF;color:#fff;" onclick="copyToZalo('${emp.code}')">💬 Copy báo cáo sang nhóm Zalo</button>
     </div>
     <div class="btn-row" style="justify-content:center;">
-      <button type="button" class="btn btn-primary" onclick="state.justSubmitted=false; renderAll();">✏️ Gửi báo cáo khác</button>
+      <button type="button" class="btn btn-primary" onclick="submitAnotherReport()">✏️ Chỉnh sửa báo cáo đã gửi</button>
       <button type="button" class="btn btn-ghost" onclick="goHome()">← Trang chủ</button>
     </div>
   </div>
@@ -1127,6 +1131,8 @@ function historyCardApi(r){
 }
 
 async function submitLog(empId){
+  if(state.isSubmitting) return; // chặn bấm liên tiếp gây trùng dòng trong Sheet
+  state.isSubmitting = true;
   const emp = getEmp(empId);
   const isManager = isManagerRole(emp);
   const isUpdate = state.editingExisting && state.editRowIndex;
@@ -1223,6 +1229,7 @@ async function submitLog(empId){
   state.editingExisting = false;
   state.editRowIndex = null;
   state.lastWasUpdate = isUpdate;
+  state.isSubmitting = false;
   renderAll(); window.scrollTo(0,0);
 }
 
