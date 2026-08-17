@@ -788,6 +788,7 @@ function applyExtractedToNF(key, text, prefix){
   if(val==null) return;
   const trimmed = val.trim();
   if(trimmed===QUESTIONS[key].skip) logDraft[key] = {none:true, text:""};
+  else if(trimmed==="(chưa trả lời)" || trimmed==="(chưa ghi)" || trimmed==="") logDraft[key] = {none:false, text:""};
   else logDraft[key] = {none:false, text: trimmed};
 }
 function prefillFromReport(r){
