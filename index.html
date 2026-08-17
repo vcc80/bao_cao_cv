@@ -1774,6 +1774,12 @@ function renderOverviewTab(emp){
   </div>`;
 }
 
+function isStandalonePWA(){
+  try{
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }catch(e){ return false; }
+}
+
 (async function init(){
   const maParam = new URLSearchParams(window.location.search).get("ma");
   const urlEmpFallback = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
@@ -1788,12 +1794,21 @@ function renderOverviewTab(emp){
     document.getElementById("sidebar").innerHTML = "";
     document.getElementById("tabs").innerHTML = "";
     document.getElementById("tabContent").innerHTML = `<div style="text-align:center;padding:70px 20px;color:var(--ink-soft);font-size:13px;">Đang tải...</div>`;
-  } else {
-    // Không có mã trên URL — thường gặp khi mở lại từ icon PWA đã cài (start_url
-    // cố định không mang theo ?ma=). Thử khôi phục theo mã đăng nhập gần nhất.
+  } else if(isStandalonePWA()){
+    // KHÔNG có mã trên URL, và đang chạy dạng app đã cài (standalone) — đây là
+    // trường hợp mở lại từ icon PWA cài theo link cá nhân (start_url cố định
+    // không mang theo ?ma=). Thử khôi phục theo mã đăng nhập gần nhất.
+    // Lưu ý: KHÔNG áp dụng khi mở link chung bằng trình duyệt bình thường — nếu
+    // không, người sau dùng chung link/thiết bị sẽ bị tự đăng nhập nhầm thành
+    // người trước đó, thay vì được hỏi lại mã như mong muốn.
     const lastCode = getLastCode();
     const found = lastCode ? EMPLOYEES.find(e=>e.code===lastCode) : null;
     state.currentEmployeeId = found ? found.id : null;
+    renderAll();
+  } else {
+    // Mở link chung bằng trình duyệt bình thường — luôn hiện cửa sổ hỏi mã,
+    // không tự đăng nhập theo ai đã dùng máy/link này trước đó.
+    state.currentEmployeeId = null;
     renderAll();
   }
 
@@ -1805,11 +1820,11 @@ function renderOverviewTab(emp){
     if(realUrlEmp){
       state.currentEmployeeId = realUrlEmp;
       saveLastCode(getEmp(realUrlEmp)?.code);
-    } else if(!state.currentEmployeeId){
+    } else if(!state.currentEmployeeId && isStandalonePWA()){
       const lastCode = getLastCode();
       const found = lastCode ? EMPLOYEES.find(e=>e.code===lastCode) : null;
       if(found) state.currentEmployeeId = found.id;
-    } else if(!getEmp(state.currentEmployeeId)){
+    } else if(state.currentEmployeeId && !getEmp(state.currentEmployeeId)){
       state.currentEmployeeId = null;
     }
   }
