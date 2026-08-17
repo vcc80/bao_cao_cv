@@ -695,6 +695,9 @@ function resetLogDraft(){
   logDraft = emptyLogDraft();
 }
 function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function isManagerRole(emp){
+  return ["leader","som","functional_head","director"].includes(emp.role);
+}
 function scopeLabelFor(emp){
   if(emp.role==="som") return `chi nhánh ${emp.branch}`;
   if(emp.role==="functional_head") return `khối ${emp.khoi}`;
@@ -848,7 +851,7 @@ function renderAlreadyReportedScreen(emp){
 function renderLogTab(emp){
   if(state.justSubmitted) return renderSubmitSuccess(emp);
   if(state.reviewMode) return renderReviewPanel(emp);
-  const isManager = scopeFor(emp).length>0;
+  const isManager = isManagerRole(emp);
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
 
   let html = "";
@@ -936,7 +939,7 @@ function statusLabel(s){ return s==="ok"?"Bình thường":s==="attention"?"Cầ
 
 function validateAndReview(empId){
   const emp = getEmp(empId);
-  const isManager = scopeFor(emp).length>0;
+  const isManager = isManagerRole(emp);
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   formErrors = new Set();
   if(!allSelected.length) formErrors.add("positions");
@@ -964,7 +967,7 @@ function validateAndReview(empId){
 function openReview(empId){ state.reviewMode = true; renderAll(); window.scrollTo(0,0); }
 function closeReview(){ state.reviewMode = false; renderAll(); window.scrollTo(0,0); }
 function renderReviewPanel(emp){
-  const isManager = scopeFor(emp).length>0;
+  const isManager = isManagerRole(emp);
   const allSelected = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   const followUps = followUpDraft.filter(i=>i.title.trim());
   let html = `<div class="panel">
@@ -1125,7 +1128,7 @@ function historyCardApi(r){
 
 async function submitLog(empId){
   const emp = getEmp(empId);
-  const isManager = scopeFor(emp).length>0;
+  const isManager = isManagerRole(emp);
   const isUpdate = state.editingExisting && state.editRowIndex;
   const positionsToday = [...selectedPositionNames, ...(selectedPositionOther.trim()? [selectedPositionOther.trim()] : [])];
   const followUpsSnapshot = followUpDraft.filter(i=>i.title.trim()).map(i=>i.title+(i.sev==="urgent"?" (khẩn)":""));
