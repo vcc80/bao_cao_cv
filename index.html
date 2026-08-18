@@ -295,6 +295,7 @@ let EMPLOYEES = [
 ];
 /** Tải danh sách nhân viên thật từ Google Sheet (sheet "NhanVien" qua Apps Script).
  * Vai trò (role) trong sheet phải là 1 trong: staff, leader, som, functional_head, director. */
+let employeesReadyPromise = null;
 async function loadEmployeesFromSheet(){
   if(!apiConfigured()) return false;
   try{
@@ -459,10 +460,17 @@ function getLastCode(){ try{ return localStorage.getItem(LS_KEY); }catch(e){ ret
 function clearLastCode(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
 
 function switchEmployee(id){ state.currentEmployeeId=id; state.homeView="home"; state.activeTab="worklog"; state.openQuiz=null; state.openWorklog=null; state.showPositionModal=false; state.reviewMode=false; state.justSubmitted=false; state.submitWarning=null; state.historyHtml=null; state.historyList=null; state.historyPage=1; state.historySource=null; state.reportGate=null; state.todayReport=null; state.editingExisting=false; state.editRowIndex=null; state.isSubmitting=false; resetLogDraft(); const e=getEmp(id); if(e) saveLastCode(e.code); renderAll(); }
-function loginByCode(){
+async function loginByCode(){
   const raw = document.getElementById("empCodeInput").value.trim().toUpperCase();
   if(!raw) return;
-  const emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  let emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  if(!emp && employeesReadyPromise){
+    // Chưa khớp — có thể danh sách thật từ Google Sheet chưa kịp tải xong.
+    // Chờ tải xong (an toàn, không lặp vô hạn) rồi thử so khớp lại 1 lần nữa
+    // trước khi báo "không tìm thấy" — tránh phải bấm 2 lần mới vào được.
+    await employeesReadyPromise;
+    emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  }
   if(!emp){ alert("Không tìm thấy mã nhân viên \""+raw+"\" trong danh sách. Vui lòng kiểm tra lại (VD: NV-014)."); return; }
   switchEmployee(emp.id);
   document.getElementById("empCodeInput").value = "";
@@ -596,10 +604,18 @@ function landingCodeModalHtml(){
     </div>
   </div>`;
 }
-function loginByCodeLanding(){
+async function loginByCodeLanding(){
   const raw = (document.getElementById("landingCodeInput").value||"").trim().toUpperCase();
   if(!raw) return;
-  const emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  let emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+  if(!emp && employeesReadyPromise){
+    const btn = document.querySelector(".modal-footer .btn-primary");
+    const original = btn ? btn.textContent : null;
+    if(btn){ btn.textContent = "Đang kiểm tra..."; btn.disabled = true; }
+    await employeesReadyPromise;
+    emp = EMPLOYEES.find(e=>e.code.toUpperCase()===raw);
+    if(btn){ btn.textContent = original; btn.disabled = false; }
+  }
   if(!emp){ alert("Không tìm thấy mã nhân viên \"" + raw + "\" trong danh sách. Vui lòng kiểm tra lại."); return; }
   switchEmployee(emp.id);
 }
@@ -1794,6 +1810,8 @@ function isStandalonePWA(){
 }
 
 (async function init(){
+  employeesReadyPromise = loadEmployeesFromSheet(); // bắt đầu tải song song ngay từ đầu
+
   const maParam = new URLSearchParams(window.location.search).get("ma");
   const urlEmpFallback = getUrlEmployeeId(); // dò theo EMPLOYEES dự phòng trước, để phản hồi tức thì
   if(urlEmpFallback){
@@ -1826,7 +1844,7 @@ function isStandalonePWA(){
   }
 
   await loadData();
-  const loaded = await loadEmployeesFromSheet();
+  const loaded = await employeesReadyPromise;
   if(loaded){
     // Sau khi có danh sách THẬT từ Sheet, dò lại link cá nhân (?ma=) theo danh sách thật
     const realUrlEmp = getUrlEmployeeId();
