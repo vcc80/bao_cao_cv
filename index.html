@@ -727,6 +727,32 @@ function scopeLabelFor(emp){
 }
 function readinessLabelText(v){ return v==="ready"?"✅ Sẵn sàng":v==="conditional"?"⚠️ Có điều kiện":"❌ Chưa sẵn sàng"; }
 
+/* ===== Nhận diện "không có nội dung" khi tạo bản tóm tắt gửi Zalo (gọn, bỏ dòng trống) ===== */
+const NO_CONTENT_MARKERS = [
+  "không","không có","k","ko","hiện chưa","hiện không","chưa có",
+  "không có vấn đề phát sinh","chưa thử cách làm mới nào","chưa có đề xuất gì thêm",
+  "(chưa ghi)","(chưa trả lời)"
+];
+function isEmptyLike(text){
+  if(!text) return true;
+  return NO_CONTENT_MARKERS.includes(String(text).trim().toLowerCase());
+}
+function nfContent(key){
+  const v = logDraft[key];
+  if(v.none) return "";
+  const t = v.text.trim();
+  return isEmptyLike(t) ? "" : t;
+}
+function plainContent(val){
+  const t = (val||"").trim();
+  return isEmptyLike(t) ? "" : t;
+}
+function formatDateDMY(d){
+  const parts = String(d).split("-");
+  if(parts.length!==3) return d;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 /* ===== Modal chọn vị trí làm hôm nay (2 cột, sắp theo ABC) ===== */
 function openPositionModal(){ state.showPositionModal = true; renderAll(); }
 function closePositionModal(){
@@ -1191,20 +1217,51 @@ async function submitLog(empId){
     DATA.reports.push(report);
   }
 
-  const zaloLines = [
-    `BÁO CÁO 3C — ${fmtDate(report.date)}`,
-    `Họ tên: ${emp.name}`,
-    `Vai trò: ${ROLE_LABELS[emp.role]}`,
-    `Khối: ${emp.khoi}`,
-    `Chi nhánh: ${emp.branch}`
-  ];
-  if(positionsToday.length) zaloLines.push(`Vị trí làm hôm nay: ${positionsToday.join(", ")}`);
-  zaloLines.push("", "— BÁO CÁO CÁ NHÂN —", c1_self, c2_self, c3_self);
-  if(isManager){
-    zaloLines.push("", "— BÁO CÁO BỘ PHẬN —", c1_dept, c2_dept, c3_dept);
-    zaloLines.push("Sẵn sàng ngày mai: " + readinessLabelText(readinessDraft) + (readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""));
+  const dateDMY = formatDateDMY(report.date);
+  const timeHM = (report.timestamp||"").split(" ")[1] || "";
+  const zq1 = plainContent(logDraft.q1_done);
+  const zq2 = nfContent("q2_patient");
+  const zq3 = nfContent("q3_resource");
+  const zq4 = nfContent("q4_improve");
+  const zq5 = nfContent("q5_idea");
+  const zq6 = plainContent(logDraft.q6_plan);
+
+  const zaloLines = [];
+  if(!isManager){
+    zaloLines.push(`${emp.name}: ${dateDMY} : ${timeHM} - ${positionsToday.join(", ")}`);
+    zaloLines.push("");
+    if(zq1) zaloLines.push(`* Kết quả đã làm được hôm nay: ${zq1}`);
+    if(zq2) zaloLines.push(`* Bệnh nhân: ${zq2}`);
+    if(zq3) zaloLines.push(`* Vấn đề phát sinh: ${zq3}`);
+    if(zq4) zaloLines.push(`* Cải tiến/cách làm mới: ${zq4}`);
+    if(zq5) zaloLines.push(`🔴*Đề xuất: ${zq5}*`);
+    if(zq6) zaloLines.push(`* Công việc ngày mai: ${zq6}`);
+    if(followUpsSnapshot.length) zaloLines.push(`🚨${followUpsSnapshot.join("; ")}`);
+  } else {
+    zaloLines.push(`${emp.name} - ${emp.khoi} - ${dateDMY} ${timeHM}`);
+    if(positionsToday.length) zaloLines.push(positionsToday.join(", "));
+    zaloLines.push("🙂CÁ NHÂN:");
+    if(zq1) zaloLines.push(`* Kết quả đã làm được hôm nay: ${zq1}`);
+    if(zq2) zaloLines.push(`* Bệnh nhân: ${zq2}`);
+    if(zq3) zaloLines.push(`* Vấn đề phát sinh: ${zq3}`);
+    if(zq4) zaloLines.push(`* Cải tiến/cách làm mới: ${zq4}`);
+    if(zq5) zaloLines.push(`🔴*Đề xuất: ${zq5}*`);
+    if(zq6) zaloLines.push(`* Công việc ngày mai: ${zq6}`);
+    if(followUpsSnapshot.length) zaloLines.push(`🚨${followUpsSnapshot.join("; ")}`);
+
+    const zd1 = plainContent(logDraft.d1_result);
+    const zd2 = plainContent(logDraft.d2_standardize);
+    const zd3 = plainContent(logDraft.d3_propose);
+    const zd4raw = (logDraft.d4_tomorrow||"").trim();
+    const zd4 = isEmptyLike(zd4raw) ? "Không có" : zd4raw;
+
+    zaloLines.push("☘️BỘ PHẬN:");
+    if(zd1) zaloLines.push(`* Kết quả: ${zd1}`);
+    if(zd2) zaloLines.push(`* Chuẩn hóa/cải tiến: ${zd2}`);
+    if(zd3) zaloLines.push(`🔴*Đề xuất: ${zd3}*`);
+    zaloLines.push(`* Công việc sẽ triển khai cho bộ phận: ${zd4}`);
+    zaloLines.push(`Sẵn sàng ngày mai: ${readinessLabelText(readinessDraft)}${readinessDraft!=="ready" && logDraft.c3_support.trim() ? " — "+logDraft.c3_support.trim() : ""}`);
   }
-  if(followUpsSnapshot.length) zaloLines.push("", "Việc cần theo dõi: " + followUpsSnapshot.join("; "));
   state.lastReportSummary = zaloLines.join("\n");
 
   followUpDraft.filter(i=>i.title.trim()).forEach(i=>{
